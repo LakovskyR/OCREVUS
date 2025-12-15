@@ -162,11 +162,11 @@ def calculate_metrics(df):
     df_mtd_agg.columns = ['Chainage Cip', 'volume_iv_mtd', 'volume_sc_mtd', 'nb_orders_mtd']
     
     # 4 Month Avg
-start_4m = (today.replace(day=1) - timedelta(days=120))
-df_4m = df[(df['date_day'].dt.date >= start_4m) & (df['date_day'].dt.date < current_month)].copy()
-df_4m_agg = df_4m.groupby('chainage_cip').agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
-df_4m_agg['avg_4m'] = (df_4m_agg['volume_iv'] + df_4m_agg['volume_sc']) / 4.0
-df_4m_agg = df_4m_agg.rename(columns={'chainage_cip': 'Chainage Cip'})  # ← ADD THIS LINE
+    start_4m = (today.replace(day=1) - timedelta(days=120))
+    df_4m = df[(df['date_day'].dt.date >= start_4m) & (df['date_day'].dt.date < current_month)].copy()
+    df_4m_agg = df_4m.groupby('chainage_cip').agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
+    df_4m_agg['avg_4m'] = (df_4m_agg['volume_iv'] + df_4m_agg['volume_sc']) / 4.0
+    df_4m_agg = df_4m_agg.rename(columns={'chainage_cip': 'Chainage Cip'})  # ← ADD THIS LINE
     
     # Metadata & Merging
     df_first_sc = df[df['volume_sc'] > 0].groupby('chainage_cip')['date_day'].min().reset_index()
