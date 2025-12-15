@@ -1,0 +1,39 @@
+name: Daily Ocrevus Report
+
+on:
+  schedule:
+    # Runs at 07:00 UTC, Monday through Friday
+    - cron: '0 7 * * 1-5'
+  # Allows you to run it manually from the Actions tab for testing
+  workflow_dispatch:
+
+jobs:
+  run-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Ocrevus Script
+        env:
+          # Mapping GitHub Secrets to Python Env Vars
+          TABLEAU_TOKEN_NAME: ${{ secrets.TABLEAU_TOKEN_NAME }}
+          TABLEAU_TOKEN_SECRET: ${{ secrets.TABLEAU_TOKEN_SECRET }}
+          TABLEAU_SITE_ID: ${{ secrets.TABLEAU_SITE_ID }}
+          TABLEAU_SERVER_URL: ${{ secrets.TABLEAU_SERVER_URL }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          # Force the active group to prod_sectorised for automation
+          ACTIVE_RECIPIENT_GROUP: 'prod_sectorised'
+        run: python ocrevus_app.py

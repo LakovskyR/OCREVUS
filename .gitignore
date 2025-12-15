@@ -1,0 +1,13 @@
+Environments
+
+.env
+pycache/
+
+Generated Images
+
+*.png
+*.html
+
+Logs
+
+*.log
