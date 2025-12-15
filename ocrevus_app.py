@@ -318,7 +318,7 @@ def generate_charts(df_full):
     )])
     
     fig_vol.update_layout(
-        title=dict(text='Répartition des ventes Ocrevus SC / IV sur le mois en cours',
+        title=dict(text='Ventes Ocrevus SC / IV sur le mois en cours',
                   x=0.5, font=dict(size=24, family=FONT_FAMILY)),  # Increased to 24
         template='plotly_white', height=450, width=600,
         margin=dict(l=20, r=20, t=80, b=170), showlegend=False
