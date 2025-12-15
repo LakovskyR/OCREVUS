@@ -279,16 +279,50 @@ def generate_charts(df_full):
 # EMAIL GENERATION
 # =============================================================================
 
-def get_ai_content(iv, sc, total_centers):
+def get_ai_content(iv, sc, total_centers, target_total=4686, sector_name=None, sector_iv=None, sector_sc=None):
     try:
         client = Perplexity(api_key=PPLX_API_KEY)
-        today = datetime.now().strftime('%d/%m/%Y')
-        prompt = f"""Contexte Ocrevus (SEP): IV existant, SC lancé 12/12/2024.
-Situation {today}: IV={iv}, SC={sc}, Centres SC={total_centers}.
-En 2-3 phrases courtes en français (ton optimiste):
-1. Rassurer sur le rythme global.
-2. Mentionner l'attente des premières commandes SC.
-IMPORTANT: Ne PAS inclure de références ou de citations comme [1], [2], etc. dans la réponse."""
+        
+        # Calculate working days progress
+        today = datetime.now()
+        # Find the first and last day of the current month
+        first_day = today.replace(day=1)
+        last_day = (first_day.replace(month=first_day.month % 12 + 1, year=first_day.year if first_day.month < 12 else first_day.year + 1) - timedelta(days=1))
+        
+        # Calculate total working days in the month (Mon-Fri)
+        total_working_days = 0
+        days_passed = 0
+        
+        for d in range(last_day.day):
+            day_date = first_day + timedelta(days=d)
+            if day_date.weekday() < 5: # Mon-Fri
+                total_working_days += 1
+                if day_date <= today:
+                    days_passed += 1
+                    
+        pct_month_passed = (days_passed / total_working_days * 100) if total_working_days > 0 else 0
+        total_sales = iv + sc
+        pct_target_reached = (total_sales / target_total * 100) if target_total > 0 else 0
+        
+        sector_context = ""
+        if sector_name and sector_iv is not None:
+             sector_context = f"\nFOCUS SECTEUR ({sector_name}): Performance locale: {sector_iv} IV + {sector_sc} SC."
+
+        prompt = f"""Contexte Ocrevus (SEP):
+- IV: traitement existant
+- SC: nouveau lancement (12/12/2024), phase d'attente des premières commandes.
+
+Situation Nationale au {today.strftime('%d/%m/%Y')}:
+- Ventes Totales: {total_sales} (IV: {iv}, SC: {sc}) sur objectif {target_total}.
+- Progression: {pct_target_reached:.0f}% de l'objectif atteint en {pct_month_passed:.0f}% des jours ouvrés du mois.
+- Centres SC activés: {total_centers}.
+{sector_context}
+
+Instruction: Rédige un court paragraphe (2-3 phrases) en français sur un ton très optimiste et encourageant.
+1. Souligne la bonne dynamique globale par rapport à l'avancement du mois (ex: "X% de l'objectif en Y% du temps").
+2. Mentionne l'attente confiante des commandes SC.
+3. Si un focus secteur est fourni ci-dessus, inclus un mot rapide et positif sur leur contribution spécifique.
+IMPORTANT: Ne PAS inclure de références ou de citations comme [1], [2]."""
         
         resp = client.chat.completions.create(messages=[{"role": "user", "content": prompt}], model="sonar")
         content = resp.choices[0].message.content
@@ -296,8 +330,9 @@ IMPORTANT: Ne PAS inclure de références ou de citations comme [1], [2], etc. d
         for i in range(1, 10):
             content = content.replace(f'[{i}]', '')
         return content.replace('**','').replace('*','')
-    except:
-        return "Le rythme global est bon. Nous attendons avec confiance les premières commandes SC."
+    except Exception as e:
+        print(f"AI Error: {e}")
+        return "Le rythme global est excellent. Nous attendons avec confiance les premières commandes SC pour compléter cette belle dynamique."
 
 def build_html_v3(table_df, ps_content):
     """
@@ -451,9 +486,13 @@ if __name__ == "__main__":
                     # Metrics for subject line (specific to this sector view)
                     sec_iv = int(df_sec['Volume MTT Ocrevus IV de la veille'].sum())
                     sec_sc = int(df_sec['Volume MTT Ocrevus SC de la veille'].sum())
+                    
+                    # Generate Sector-Specific AI Content
+                    sec_ps_content = get_ai_content(nat_iv, nat_sc, total_centers_sc, sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
+                    
                     subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory: IV={sec_iv}, SC={sec_sc}"
                     
-                    html = build_html_v3(df_sec, ps_content)
+                    html = build_html_v3(df_sec, sec_ps_content)
                     send_email(list(set(recipients)), subject, html) # Use set to dedup within same sector
                     time.sleep(1)
 
@@ -469,9 +508,13 @@ if __name__ == "__main__":
                 if recipients:
                     sec_iv = int(df_sec['Volume MTT Ocrevus IV de la veille'].sum())
                     sec_sc = int(df_sec['Volume MTT Ocrevus SC de la veille'].sum())
+                    
+                    # Generate Sector-Specific AI Content
+                    sec_ps_content = get_ai_content(nat_iv, nat_sc, total_centers_sc, sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
+
                     subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory: IV={sec_iv}, SC={sec_sc}"
                     
-                    html = build_html_v3(df_sec, ps_content)
+                    html = build_html_v3(df_sec, sec_ps_content)
                     send_email(list(set(recipients)), subject, html)
                     time.sleep(1)
 
@@ -487,9 +530,13 @@ if __name__ == "__main__":
                 if recipients:
                     sec_iv = int(df_sec['Volume MTT Ocrevus IV de la veille'].sum())
                     sec_sc = int(df_sec['Volume MTT Ocrevus SC de la veille'].sum())
+                    
+                    # Generate Sector-Specific AI Content
+                    sec_ps_content = get_ai_content(nat_iv, nat_sc, total_centers_sc, sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
+
                     subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory: IV={sec_iv}, SC={sec_sc}"
                     
-                    html = build_html_v3(df_sec, ps_content)
+                    html = build_html_v3(df_sec, sec_ps_content)
                     send_email(list(set(recipients)), subject, html)
                     time.sleep(1)
             
@@ -497,7 +544,9 @@ if __name__ == "__main__":
             print("Sending National View to Global Team...")
             global_recipients = RECIPIENT_GROUPS['prod_national_view']
             subject_nat = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}"
-            html_nat = build_html_v3(final_table, ps_content)
+            # Standard National AI Content
+            nat_ps_content = get_ai_content(nat_iv, nat_sc, total_centers_sc)
+            html_nat = build_html_v3(final_table, nat_ps_content)
             send_email(global_recipients, subject_nat, html_nat)
             
         elif ACTIVE_RECIPIENT_GROUP == 'test_3':
@@ -517,8 +566,11 @@ if __name__ == "__main__":
             sec_iv = int(df_sec['Volume MTT Ocrevus IV de la veille'].sum())
             sec_sc = int(df_sec['Volume MTT Ocrevus SC de la veille'].sum())
             
+            # Generate Sector-Specific AI Content for Test
+            sec_ps_content = get_ai_content(nat_iv, nat_sc, total_centers_sc, sector_name=target_sector, sector_iv=sec_iv, sector_sc=sec_sc)
+
             subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory: IV={sec_iv}, SC={sec_sc}"
-            html = build_html_v3(df_sec, ps_content)
+            html = build_html_v3(df_sec, sec_ps_content)
             
             recipients = RECIPIENT_GROUPS['test_3']
             send_email(recipients, subject, html)
@@ -528,14 +580,16 @@ if __name__ == "__main__":
             print("Running Prod (National View to Everyone)...")
             global_recipients = RECIPIENT_GROUPS['prod_national_view']
             subject_nat = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}"
-            html_nat = build_html_v3(final_table, ps_content)
+            nat_ps_content = get_ai_content(nat_iv, nat_sc, total_centers_sc)
+            html_nat = build_html_v3(final_table, nat_ps_content)
             send_email(global_recipients, subject_nat, html_nat)
 
         else:
             # National mode (test_1 / test_2)
             recipients = RECIPIENT_GROUPS.get(ACTIVE_RECIPIENT_GROUP, [SENDER_EMAIL])
             subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}"
-            html = build_html_v3(final_table, ps_content)
+            nat_ps_content = get_ai_content(nat_iv, nat_sc, total_centers_sc)
+            html = build_html_v3(final_table, nat_ps_content)
             send_email(recipients, subject, html)
             
         print("✅ Execution Complete")
