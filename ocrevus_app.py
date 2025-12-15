@@ -523,6 +523,14 @@ if __name__ == "__main__":
             recipients = RECIPIENT_GROUPS['test_3']
             send_email(recipients, subject, html)
 
+        elif ACTIVE_RECIPIENT_GROUP == 'prod':
+            # --- PROD: Send National View to Everyone (Non-sectorized) ---
+            print("Running Prod (National View to Everyone)...")
+            global_recipients = RECIPIENT_GROUPS['prod_national_view']
+            subject_nat = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}"
+            html_nat = build_html_v3(final_table, ps_content)
+            send_email(global_recipients, subject_nat, html_nat)
+
         else:
             # National mode (test_1 / test_2)
             recipients = RECIPIENT_GROUPS.get(ACTIVE_RECIPIENT_GROUP, [SENDER_EMAIL])
