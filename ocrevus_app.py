@@ -277,26 +277,26 @@ def generate_charts(df_full):
                      color_discrete_sequence=[COLORS['ocrevus_sc']], text='Nombre de centres')
     
     fig_kpi.update_layout(
-        template='plotly_white', height=500, width=600,  # Increased height for ambition text
+        template='plotly_white', height=500, width=600,
         font=dict(family=FONT_FAMILY, size=CHART_TEXT_MAIN),
         title=dict(text='Nombre de centres qui ont initié Ocrevus SC', 
-                  font=dict(size=CHART_TITLE_SIZE, family=FONT_FAMILY), y=0.98),
+                  font=dict(size=21, family=FONT_FAMILY), y=0.98, x=0.5, xanchor='center'),  # Size +2 = 21
         yaxis=dict(rangemode='tozero', tick0=0, dtick=1, title=None),
         xaxis=dict(title=None),
-        margin=dict(b=80, t=140)  # More space for ambition text above chart
+        margin=dict(b=140, t=80)
     )
     
-    # Total number at same level as title
+    # Total number - LEFT ALIGNED, above chart
     fig_kpi.add_annotation(
         text=f'<b>{total_hco}</b>', xref="paper", yref="paper",
-        x=0.95, y=0.98, showarrow=False, 
-        font=dict(size=36, family=FONT_FAMILY), xanchor='right'
+        x=0.05, y=0.98, showarrow=False,  # LEFT aligned (x=0.05)
+        font=dict(size=36, family=FONT_FAMILY), xanchor='left'
     )
     
-    # Ambition text BETWEEN title and chart (moved up)
+    # Ambition text BELOW chart (not between title and chart)
     fig_kpi.add_annotation(
         text="<i>Ambition : 70% des C1/C2 et 50% des C3 ont commandé Ocrevus SC<br>dans les 4 mois suivants le lancement soit 119 centres</i>",
-        xref="paper", yref="paper", x=0.5, y=0.88, showarrow=False,
+        xref="paper", yref="paper", x=0.5, y=-0.28, showarrow=False,  # BELOW chart
         font=dict(size=CHART_ANNOTATION, family=FONT_FAMILY), align="center"
     )
     
@@ -317,7 +317,7 @@ def generate_charts(df_full):
     
     fig_vol.update_layout(
         title=dict(text='Répartition des ventes Ocrevus SC / IV sur le mois en cours',
-                  x=0.5, font=dict(size=CHART_TITLE_SIZE, family=FONT_FAMILY)),
+                  x=0.5, font=dict(size=21, family=FONT_FAMILY)),  # Size 21 same as Chart 1
         template='plotly_white', height=450, width=600,
         margin=dict(l=20, r=20, t=80, b=170), showlegend=False
     )
@@ -367,7 +367,7 @@ def generate_charts(df_full):
     fig_d.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC',
-                  font=dict(size=CHART_TITLE_SIZE)),
+                  font=dict(size=21)),  # Size 21 for consistency
         yaxis=dict(visible=False),
         showlegend=False
     )
@@ -398,9 +398,9 @@ def generate_charts(df_full):
     fig_m.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution mensuelle des volumes d\'Ocrevus IV et SC',
-                  font=dict(size=CHART_TITLE_SIZE)),
-        yaxis=dict(visible=False),  # NO Y-AXIS
-        showlegend=False  # Legend removed (will be added manually in HTML)
+                  font=dict(size=21)),  # Size 21 for consistency
+        yaxis=dict(visible=False, range=[0, max(df_m['volume_iv'] + df_m['volume_sc']) * 1.4]),  # Increased from 1.2 to 1.4
+        showlegend=False
     )
     
     fig_m.write_image('/tmp/monthly.png', scale=2)
@@ -514,10 +514,11 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None):
         td {{ padding: 10px 8px; border: 1px solid #e0e0e0; color: #000; }}
         tr:nth-child(even) {{ background-color: #f9f9f9; }}
         tr:hover {{ background-color: #f0f0f0; }}
-        .legend {{ display: flex; justify-content: center; gap: 30px; margin: 20px 0; font-size: 16px; font-weight: bold; }}
-        .legend-item {{ display: flex; align-items: center; gap: 10px; }}
+        .legend {{ display: flex; justify-content: center; gap: 60px; margin: 20px 0; font-size: 16px; font-weight: bold; }}
+        .legend-item {{ display: flex; align-items: center; gap: 15px; }}
         .legend-box {{ width: 30px; height: 20px; border-radius: 4px; }}
         .separator {{ height: 2px; background: #e0e0e0; margin: 30px 0; }}
+        .vertical-separator {{ width: 2px; background: #e0e0e0; }}
         .kpi-container {{ display: flex; justify-content: space-between; margin: 20px 0; gap: 20px; }}
         .kpi-card {{ flex: 1; }}
         .chart {{ text-align: center; margin: 20px 0; }}
@@ -571,6 +572,7 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None):
             
             <div class="kpi-container">
                 <div class="kpi-card"><img src="cid:kpi_chart" style="width: 100%; border-radius: 4px;"></div>
+                <div class="vertical-separator"></div>
                 <div class="kpi-card"><img src="cid:vol_chart" style="width: 100%; border-radius: 4px;"></div>
             </div>
             
