@@ -279,13 +279,13 @@ def generate_charts(df_full):
     # KPI Digit Outside to the LEFT
     # Added left margin to accommodate the digit
     fig_kpi.update_layout(
-        template='plotly_white', height=500, width=650, # Increased width slightly
+        template='plotly_white', height=500, width=700, # Match Chart 2 width
         font=dict(family=FONT_FAMILY, size=CHART_TEXT_MAIN),
         title=dict(text='Nombre de centres qui ont initié Ocrevus SC', 
-                  font=dict(size=24, family=FONT_FAMILY), y=0.98, x=0.5, xanchor='center'),  # Increased to 24
+                  font=dict(size=24, family=FONT_FAMILY), y=0.98, x=0.5, xanchor='center'),
         yaxis=dict(rangemode='tozero', tick0=0, dtick=1, title=None),
         xaxis=dict(title=None),
-        margin=dict(l=150, b=140, t=80) # Increased left margin
+        margin=dict(l=150, b=140, t=80) # Left margin for digit
     )
     
     # Total number - LEFT ALIGNED, outside chart
@@ -314,14 +314,14 @@ def generate_charts(df_full):
         labels=labels, values=values, marker=dict(colors=colors),
         textinfo='label+value+percent',
         texttemplate='%{label}<br>%{value:,.0f}<br>(%{percent})',
-        textfont=dict(size=15, family=FONT_FAMILY)  # +1 size
+        textfont=dict(size=16, family=FONT_FAMILY)  # +1 size (was 15)
     )])
     
     fig_vol.update_layout(
         title=dict(text='Ventes Ocrevus SC / IV sur le mois en cours',
-                  x=0.5, xanchor='center', font=dict(size=24, family=FONT_FAMILY)),
-        template='plotly_white', height=500, width=650,  # Bigger & centered
-        margin=dict(l=50, r=50, t=100, b=170), showlegend=False
+                  x=0.5, y=0.98, xanchor='center', font=dict(size=24, family=FONT_FAMILY)),  # Added y=0.98 to align with Chart 1
+        template='plotly_white', height=550, width=700,  # Even bigger
+        margin=dict(l=50, r=50, t=80, b=170), showlegend=False
     )
     
     fig_vol.write_image('/tmp/vol.png', scale=2)
