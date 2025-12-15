@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Ocrevus Automation Script v4
+Ocrevus Automation Script v4.1
 - Pixel tracking integration
-- Updated chart titles & styling
-- AI toggle parameter
-- French day labels
+- Updated chart titles & styling (Larger titles for 1 & 2)
+- Legend spacing fix for email clients
+- KPI Digit moved outside chart
 """
 
 import os
@@ -84,9 +84,9 @@ RECIPIENT_GROUPS = {
 # Styling
 COLORS = {'ocrevus_sc': '#ffc72a', 'ocrevus_iv': '#646db1', 'background': '#f5f5f3'}
 FONT_FAMILY = 'Arial'
-CHART_TITLE_SIZE = 19  # +1 from 18
+CHART_TITLE_SIZE = 19
 CHART_TEXT_MAIN = 14
-CHART_ANNOTATION = 16  # +1 from 15
+CHART_ANNOTATION = 16
 CHART_TEXT_STANDARD = 13
 
 # =============================================================================
@@ -276,27 +276,29 @@ def generate_charts(df_full):
     fig_kpi = px.bar(df_kpi, x='Catégorie', y='Nombre de centres',
                      color_discrete_sequence=[COLORS['ocrevus_sc']], text='Nombre de centres')
     
+    # KPI Digit Outside to the LEFT
+    # Added left margin to accommodate the digit
     fig_kpi.update_layout(
-        template='plotly_white', height=500, width=600,
+        template='plotly_white', height=500, width=650, # Increased width slightly
         font=dict(family=FONT_FAMILY, size=CHART_TEXT_MAIN),
         title=dict(text='Nombre de centres qui ont initié Ocrevus SC', 
-                  font=dict(size=21, family=FONT_FAMILY), y=0.98, x=0.5, xanchor='center'),  # Size +2 = 21
+                  font=dict(size=24, family=FONT_FAMILY), y=0.98, x=0.5, xanchor='center'),  # Increased to 24
         yaxis=dict(rangemode='tozero', tick0=0, dtick=1, title=None),
         xaxis=dict(title=None),
-        margin=dict(b=140, t=80)
+        margin=dict(l=150, b=140, t=80) # Increased left margin
     )
     
-    # Total number - LEFT ALIGNED, above chart
+    # Total number - LEFT ALIGNED, outside chart
     fig_kpi.add_annotation(
         text=f'<b>{total_hco}</b>', xref="paper", yref="paper",
-        x=0.05, y=0.98, showarrow=False,  # LEFT aligned (x=0.05)
-        font=dict(size=36, family=FONT_FAMILY), xanchor='left'
+        x=-0.25, y=0.5, showarrow=False,  # Outside left, centered vertically
+        font=dict(size=60, family=FONT_FAMILY), xanchor='center'
     )
     
-    # Ambition text BELOW chart (not between title and chart)
+    # Ambition text BELOW chart
     fig_kpi.add_annotation(
         text="<i>Ambition : 70% des C1/C2 et 50% des C3 ont commandé Ocrevus SC<br>dans les 4 mois suivants le lancement soit 119 centres</i>",
-        xref="paper", yref="paper", x=0.5, y=-0.28, showarrow=False,  # BELOW chart
+        xref="paper", yref="paper", x=0.5, y=-0.28, showarrow=False,
         font=dict(size=CHART_ANNOTATION, family=FONT_FAMILY), align="center"
     )
     
@@ -317,7 +319,7 @@ def generate_charts(df_full):
     
     fig_vol.update_layout(
         title=dict(text='Répartition des ventes Ocrevus SC / IV sur le mois en cours',
-                  x=0.5, font=dict(size=21, family=FONT_FAMILY)),  # Size 21 same as Chart 1
+                  x=0.5, font=dict(size=24, family=FONT_FAMILY)),  # Increased to 24
         template='plotly_white', height=450, width=600,
         margin=dict(l=20, r=20, t=80, b=170), showlegend=False
     )
@@ -367,7 +369,7 @@ def generate_charts(df_full):
     fig_d.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC',
-                  font=dict(size=21)),  # Size 21 for consistency
+                  font=dict(size=21)),
         yaxis=dict(visible=False),
         showlegend=False
     )
@@ -398,8 +400,8 @@ def generate_charts(df_full):
     fig_m.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution mensuelle des volumes d\'Ocrevus IV et SC',
-                  font=dict(size=21)),  # Size 21 for consistency
-        yaxis=dict(visible=False, range=[0, max(df_m['volume_iv'] + df_m['volume_sc']) * 1.4]),  # Increased from 1.2 to 1.4
+                  font=dict(size=21)),
+        yaxis=dict(visible=False, range=[0, max(df_m['volume_iv'] + df_m['volume_sc']) * 1.4]),
         showlegend=False
     )
     
@@ -514,9 +516,10 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None):
         td {{ padding: 10px 8px; border: 1px solid #e0e0e0; color: #000; }}
         tr:nth-child(even) {{ background-color: #f9f9f9; }}
         tr:hover {{ background-color: #f0f0f0; }}
-        .legend {{ display: flex; justify-content: center; gap: 60px; margin: 20px 0; font-size: 16px; font-weight: bold; }}
-        .legend-item {{ display: flex; align-items: center; gap: 15px; }}
-        .legend-box {{ width: 30px; height: 20px; border-radius: 4px; }}
+        /* UPDATED LEGEND STYLING */
+        .legend {{ display: flex; justify-content: center; margin: 20px 0; font-size: 16px; font-weight: bold; }}
+        .legend-item {{ display: flex; align-items: center; margin: 0 30px; }}
+        .legend-box {{ width: 30px; height: 20px; border-radius: 4px; margin-right: 15px; }}
         .separator {{ height: 2px; background: #e0e0e0; margin: 30px 0; }}
         .vertical-separator {{ width: 2px; background: #e0e0e0; }}
         .kpi-container {{ display: flex; justify-content: space-between; margin: 20px 0; gap: 20px; }}
@@ -551,7 +554,7 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None):
                         <th>Volume MTT<br>Ocrevus IV+SC<br>dans le mois</th>
                         <th>Nombre de<br>commandes<br>dans le mois<br>d'Ocrevus IV+SC</th>
                         <th>Date 1ère<br>commande<br>Ocrevus SC</th>
-                        <th>Moyenne des<br>Volumes MTT<br>Ocrevus IV+SC<br>des 4 derniers mois</th>
+                        <th>AVG IV+SC CM4</th>
                     </tr>
                 </thead>
                 <tbody>{rows}</tbody>
@@ -664,6 +667,7 @@ if __name__ == "__main__":
             for sector in sorted(promo_sectors):
                 df_sec = final_table[final_table['secteur_promo'] == sector].copy()
                 
+                # Get unique PROMO emails for this sector
                 recipients = []
                 for mail in df_sec['email_promo'].dropna().unique():
                     if '@' in str(mail): recipients.append(str(mail).strip())
