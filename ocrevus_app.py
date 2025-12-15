@@ -62,6 +62,12 @@ RECIPIENT_GROUPS = {
         "nele.kokel@roche.com",
         "diane-laure.trouvet@roche.com"
     ],
+    'test_3': [
+        "roman.lakovskiy@contractors.roche.com",
+        "amaury.coumau@roche.com",
+        "nele.kokel@roche.com",
+        "diane-laure.trouvet@roche.com"
+    ],
     # People who ALWAYS get the National View (even in prod)
     'prod_national_view': [
         "roman.lakovskiy@contractors.roche.com",
@@ -223,10 +229,10 @@ def generate_charts(df_full):
     iv, sc = df_mtd['volume_iv'].sum(), df_mtd['volume_sc'].sum()
     
     fig_vol = go.Figure(data=[go.Pie(labels=['IV', 'SC'], values=[iv, sc], marker=dict(colors=[COLORS['ocrevus_iv'], COLORS['ocrevus_sc']]), 
-                        textinfo='label+value+percent', textfont=dict(size=CHART_TEXT_MAIN))])
-    # Legend right side to avoid overlap
+                        textinfo='label+value+percent', textposition='inside', textfont=dict(size=CHART_TEXT_MAIN))])
+    # Legend removed per request
     fig_vol.update_layout(template='plotly_white', height=450, width=600, title=dict(text='Volumes Ocrevus SC/IV - Mois en cours', font=dict(size=CHART_TITLE_SIZE)),
-                          showlegend=True, legend=dict(x=1, y=0.5), margin=dict(l=20, r=100, t=80, b=50))
+                          showlegend=False, margin=dict(l=20, r=20, t=80, b=50))
     fig_vol.write_image('/tmp/vol.png', scale=2)
     
     # DAILY (Last 5 Business Days)
@@ -359,7 +365,7 @@ def build_html_v3(table_df, ps_content):
                         <th>Volume MTT<br>Ocrevus IV+SC<br>dans le mois</th>
                         <th>Nombre de<br>commandes<br>dans le mois<br>d'Ocrevus IV+SC</th>
                         <th>Date 1ère<br>commande<br>Ocrevus SC</th>
-                        <th>CM4</th>
+                        <th>AVG IV+SC CM4</th>
                     </tr>
                 </thead>
                 <tbody>{rows}</tbody>
@@ -494,8 +500,31 @@ if __name__ == "__main__":
             html_nat = build_html_v3(final_table, ps_content)
             send_email(global_recipients, subject_nat, html_nat)
             
+        elif ACTIVE_RECIPIENT_GROUP == 'test_3':
+            # --- TEST 3: Send One Sector Email to Managers ---
+            print("Running Test 3 (One Sector to Managers)...")
+            
+            # Find a sector with sales yesterday, preferably
+            active_sectors = final_table[
+                (final_table['Volume MTT Ocrevus IV de la veille'] > 0) | 
+                (final_table['Volume MTT Ocrevus SC de la veille'] > 0)
+            ]['secteur_promo'].unique()
+            
+            target_sector = active_sectors[0] if len(active_sectors) > 0 else final_table['secteur_promo'].unique()[0]
+            print(f"Selected Sector: {target_sector}")
+            
+            df_sec = final_table[final_table['secteur_promo'] == target_sector].copy()
+            sec_iv = int(df_sec['Volume MTT Ocrevus IV de la veille'].sum())
+            sec_sc = int(df_sec['Volume MTT Ocrevus SC de la veille'].sum())
+            
+            subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory: IV={sec_iv}, SC={sec_sc}"
+            html = build_html_v3(df_sec, ps_content)
+            
+            recipients = RECIPIENT_GROUPS['test_3']
+            send_email(recipients, subject, html)
+
         else:
-            # Test Mode (Manual Run)
+            # National mode (test_1 / test_2)
             recipients = RECIPIENT_GROUPS.get(ACTIVE_RECIPIENT_GROUP, [SENDER_EMAIL])
             subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}"
             html = build_html_v3(final_table, ps_content)
