@@ -162,10 +162,11 @@ def calculate_metrics(df):
     df_mtd_agg.columns = ['Chainage Cip', 'volume_iv_mtd', 'volume_sc_mtd', 'nb_orders_mtd']
     
     # 4 Month Avg
-    start_4m = (today.replace(day=1) - timedelta(days=120))
-    df_4m = df[(df['date_day'].dt.date >= start_4m) & (df['date_day'].dt.date < current_month)].copy()
-    df_4m_agg = df_4m.groupby('chainage_cip').agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
-    df_4m_agg['avg_4m'] = (df_4m_agg['volume_iv'] + df_4m_agg['volume_sc']) / 4.0
+start_4m = (today.replace(day=1) - timedelta(days=120))
+df_4m = df[(df['date_day'].dt.date >= start_4m) & (df['date_day'].dt.date < current_month)].copy()
+df_4m_agg = df_4m.groupby('chainage_cip').agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
+df_4m_agg['avg_4m'] = (df_4m_agg['volume_iv'] + df_4m_agg['volume_sc']) / 4.0
+df_4m_agg = df_4m_agg.rename(columns={'chainage_cip': 'Chainage Cip'})  # ← ADD THIS LINE
     
     # Metadata & Merging
     df_first_sc = df[df['volume_sc'] > 0].groupby('chainage_cip')['date_day'].min().reset_index()
@@ -176,12 +177,10 @@ def calculate_metrics(df):
 
     # Merges
     final = df_table.merge(df_mtd_agg, on='Chainage Cip', how='left') \
-                .merge(df_4m_agg[['chainage_cip', 'avg_4m']], 
-                       left_on='Chainage Cip', right_on='chainage_cip', how='left') \
-                .drop(columns=['chainage_cip']) \
-                .merge(df_first_sc, on='Chainage Cip', how='left') \
-                .merge(cats, on='Chainage Cip', how='left') \
-                .merge(sector_info, on='Chainage Cip', how='left')
+            .merge(df_4m_agg[['Chainage Cip', 'avg_4m']], on='Chainage Cip', how='left') \
+            .merge(df_first_sc, on='Chainage Cip', how='left') \
+            .merge(cats, on='Chainage Cip', how='left') \
+            .merge(sector_info, on='Chainage Cip', how='left')
 
     # Formatting
     final['Volume MTT Ocrevus IV+SC dans le mois'] = final['volume_iv_mtd'].fillna(0) + final['volume_sc_mtd'].fillna(0)
