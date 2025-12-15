@@ -31,5 +31,5 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
-          ACTIVE_RECIPIENT_GROUP: 'prod_sectorised'
+          ACTIVE_RECIPIENT_GROUP: 'test_1'
         run: python ocrevus_app.py
