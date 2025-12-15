@@ -176,10 +176,12 @@ def calculate_metrics(df):
 
     # Merges
     final = df_table.merge(df_mtd_agg, on='Chainage Cip', how='left') \
-                    .merge(df_4m_agg[['Chainage Cip', 'avg_4m']], on='Chainage Cip', how='left') \
-                    .merge(df_first_sc, on='Chainage Cip', how='left') \
-                    .merge(cats, on='Chainage Cip', how='left') \
-                    .merge(sector_info, on='Chainage Cip', how='left')
+                .merge(df_4m_agg[['chainage_cip', 'avg_4m']], 
+                       left_on='Chainage Cip', right_on='chainage_cip', how='left') \
+                .drop(columns=['chainage_cip']) \
+                .merge(df_first_sc, on='Chainage Cip', how='left') \
+                .merge(cats, on='Chainage Cip', how='left') \
+                .merge(sector_info, on='Chainage Cip', how='left')
 
     # Formatting
     final['Volume MTT Ocrevus IV+SC dans le mois'] = final['volume_iv_mtd'].fillna(0) + final['volume_sc_mtd'].fillna(0)
