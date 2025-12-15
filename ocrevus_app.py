@@ -314,14 +314,14 @@ def generate_charts(df_full):
         labels=labels, values=values, marker=dict(colors=colors),
         textinfo='label+value+percent',
         texttemplate='%{label}<br>%{value:,.0f}<br>(%{percent})',
-        textfont=dict(size=CHART_TEXT_MAIN, family=FONT_FAMILY)
+        textfont=dict(size=15, family=FONT_FAMILY)  # +1 size
     )])
     
     fig_vol.update_layout(
         title=dict(text='Ventes Ocrevus SC / IV sur le mois en cours',
-                  x=0.5, font=dict(size=24, family=FONT_FAMILY)),  # Increased to 24
-        template='plotly_white', height=450, width=600,
-        margin=dict(l=20, r=20, t=80, b=170), showlegend=False
+                  x=0.5, xanchor='center', font=dict(size=24, family=FONT_FAMILY)),
+        template='plotly_white', height=500, width=650,  # Bigger & centered
+        margin=dict(l=50, r=50, t=100, b=170), showlegend=False
     )
     
     fig_vol.write_image('/tmp/vol.png', scale=2)
@@ -369,7 +369,7 @@ def generate_charts(df_full):
     fig_d.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC',
-                  font=dict(size=21)),
+                  font=dict(size=18), x=0.5, xanchor='center'),  # Size 18, centered
         yaxis=dict(visible=False),
         showlegend=False
     )
@@ -400,7 +400,7 @@ def generate_charts(df_full):
     fig_m.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution mensuelle des volumes d\'Ocrevus IV et SC',
-                  font=dict(size=21)),
+                  font=dict(size=18), x=0.5, xanchor='center'),  # Size 18, centered
         yaxis=dict(visible=False, range=[0, max(df_m['volume_iv'] + df_m['volume_sc']) * 1.4]),
         showlegend=False
     )
