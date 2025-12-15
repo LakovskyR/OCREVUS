@@ -32,5 +32,5 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           # OPTIONS: 'test_1' (you only), 'test_2' (managers), 'test_3' (sectorized test), 'prod_sectorised' (live), 'prod' (national live)
-          ACTIVE_RECIPIENT_GROUP: 'test_2'
+          ACTIVE_RECIPIENT_GROUP: 'test_3'
         run: python ocrevus_app.py
