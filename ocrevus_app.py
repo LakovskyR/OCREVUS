@@ -210,7 +210,8 @@ def generate_charts(df_full):
     fig_kpi = px.bar(df_kpi, x='category', y='count', text='count', color_discrete_sequence=[COLORS['ocrevus_sc']])
     fig_kpi.update_layout(template='plotly_white', height=450, width=600, font=dict(family=FONT_FAMILY, size=CHART_TEXT_MAIN),
                           title=dict(text='Centres initiateurs SC', font=dict(size=CHART_TITLE_SIZE)), 
-                          xaxis=dict(title=None), yaxis=dict(title=None, showgrid=False, visible=False))
+                          xaxis=dict(title=None), yaxis=dict(title=None, showgrid=False, visible=False),
+                          margin=dict(b=160, t=80)) # Increased bottom margin for text visibility
     fig_kpi.add_annotation(text=f'<b>{total_sc}</b>', x=0.95, y=1, xref="paper", yref="paper", showarrow=False, font=dict(size=36))
     fig_kpi.add_annotation(text="Ambition : 70% des C1/C2 et 50% des C3 ont commandé Ocrevus SC<br>dans les 4 mois suivants le lancement soit 119 centres", 
                            x=0.5, y=-0.28, xref="paper", yref="paper", showarrow=False, font=dict(size=CHART_ANNOTATION))
@@ -223,21 +224,35 @@ def generate_charts(df_full):
     
     fig_vol = go.Figure(data=[go.Pie(labels=['IV', 'SC'], values=[iv, sc], marker=dict(colors=[COLORS['ocrevus_iv'], COLORS['ocrevus_sc']]), 
                         textinfo='label+value+percent', textfont=dict(size=CHART_TEXT_MAIN))])
+    # Legend right side to avoid overlap
     fig_vol.update_layout(template='plotly_white', height=450, width=600, title=dict(text='Volumes Ocrevus SC/IV - Mois en cours', font=dict(size=CHART_TITLE_SIZE)),
-                          showlegend=False, margin=dict(b=170))
+                          showlegend=True, legend=dict(x=1, y=0.5), margin=dict(l=20, r=100, t=80, b=50))
     fig_vol.write_image('/tmp/vol.png', scale=2)
     
-    # DAILY
-    last_friday = datetime.now() - timedelta(days=(datetime.now().weekday() - 4) if datetime.now().weekday() >= 5 else 1)
-    days = [last_friday - timedelta(days=x) for x in range(5) if (last_friday - timedelta(days=x)).weekday() < 5]
-    df_d = df_full[df_full['date_day'].dt.date.isin([d.date() for d in days])].groupby('date_day').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().sort_values('date_day')
+    # DAILY (Last 5 Business Days)
+    yesterday = datetime.now().date() - timedelta(days=1)
+    
+    # Find last 5 business days
+    business_days = []
+    curr = yesterday
+    while len(business_days) < 5:
+        if curr.weekday() < 5: # Mon-Fri
+            business_days.append(curr)
+        curr -= timedelta(days=1)
+    business_days = sorted(business_days)
+    
+    df_d = df_full[df_full['date_day'].dt.date.isin(business_days)].groupby('date_day').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().sort_values('date_day')
     df_d['day'] = df_d['date_day'].dt.strftime('%a')
     
     fig_d = go.Figure()
-    fig_d.add_trace(go.Bar(x=df_d['day'], y=df_d['volume_iv'], marker=dict(color=COLORS['ocrevus_iv']), text=df_d['volume_iv'].astype(int), textposition='inside'))
+    # Centered data labels inside
+    fig_d.add_trace(go.Bar(x=df_d['day'], y=df_d['volume_iv'], name='IV', marker=dict(color=COLORS['ocrevus_iv']), 
+                           text=df_d['volume_iv'].astype(int), textposition='inside', insidetextanchor='middle'))
     if df_d['volume_sc'].sum() > 0:
-        fig_d.add_trace(go.Bar(x=df_d['day'], y=df_d['volume_sc'], marker=dict(color=COLORS['ocrevus_sc']), text=df_d['volume_sc'].astype(int), textposition='inside'))
-    fig_d.update_layout(barmode='stack', template='plotly_white', height=400, width=900, title=dict(text='Daily Ocre SC IV', font=dict(size=CHART_TITLE_SIZE)), yaxis=dict(visible=False))
+        fig_d.add_trace(go.Bar(x=df_d['day'], y=df_d['volume_sc'], name='SC', marker=dict(color=COLORS['ocrevus_sc']), 
+                               text=df_d['volume_sc'].astype(int), textposition='inside', insidetextanchor='middle'))
+    
+    fig_d.update_layout(barmode='stack', template='plotly_white', height=400, width=900, title=dict(text='Daily Ocre SC IV', font=dict(size=CHART_TITLE_SIZE)), yaxis=dict(visible=False), showlegend=False)
     fig_d.write_image('/tmp/daily.png', scale=2)
     
     # MONTHLY
@@ -246,9 +261,10 @@ def generate_charts(df_full):
     df_m['lbl'] = df_m['m'].dt.strftime('%m/%y')
     
     fig_m = go.Figure()
-    fig_m.add_trace(go.Bar(x=df_m['lbl'], y=df_m['volume_iv'], marker=dict(color=COLORS['ocrevus_iv']), text=[f'{v/1000:.2f}K' for v in df_m['volume_iv']], textposition='outside'))
-    fig_m.add_trace(go.Bar(x=df_m['lbl'], y=df_m['volume_sc'], marker=dict(color=COLORS['ocrevus_sc']), text=[f'{v/1000:.2f}K' if v>0 else '' for v in df_m['volume_sc']], textposition='outside'))
-    fig_m.update_layout(barmode='stack', template='plotly_white', height=400, width=900, title=dict(text='Monthly Ocre SC IV', font=dict(size=CHART_TITLE_SIZE)), yaxis=dict(title='Total Qté UE Mois'))
+    # Explicit names and colors for correct legend
+    fig_m.add_trace(go.Bar(x=df_m['lbl'], y=df_m['volume_iv'], name='IV', marker=dict(color=COLORS['ocrevus_iv']), text=[f'{v/1000:.2f}K' for v in df_m['volume_iv']], textposition='outside'))
+    fig_m.add_trace(go.Bar(x=df_m['lbl'], y=df_m['volume_sc'], name='SC', marker=dict(color=COLORS['ocrevus_sc']), text=[f'{v/1000:.2f}K' if v>0 else '' for v in df_m['volume_sc']], textposition='outside'))
+    fig_m.update_layout(barmode='stack', template='plotly_white', height=400, width=900, title=dict(text='Monthly Ocre SC IV', font=dict(size=CHART_TITLE_SIZE)), yaxis=dict(title='Total Qté UE Mois'), showlegend=True)
     fig_m.write_image('/tmp/monthly.png', scale=2)
     
     return int(iv), int(sc)
@@ -265,10 +281,15 @@ def get_ai_content(iv, sc, total_centers):
 Situation {today}: IV={iv}, SC={sc}, Centres SC={total_centers}.
 En 2-3 phrases courtes en français (ton optimiste):
 1. Rassurer sur le rythme global.
-2. Mentionner l'attente des premières commandes SC."""
+2. Mentionner l'attente des premières commandes SC.
+IMPORTANT: Ne PAS inclure de références ou de citations comme [1], [2], etc. dans la réponse."""
         
         resp = client.chat.completions.create(messages=[{"role": "user", "content": prompt}], model="sonar")
-        return resp.choices[0].message.content.replace('**','').replace('*','')
+        content = resp.choices[0].message.content
+        # Double clean just in case
+        for i in range(1, 10):
+            content = content.replace(f'[{i}]', '')
+        return content.replace('**','').replace('*','')
     except:
         return "Le rythme global est bon. Nous attendons avec confiance les premières commandes SC."
 
@@ -305,7 +326,7 @@ def build_html_v3(table_df, ps_content):
         .intro-text {{ font-size: 14px; line-height: 1.8; margin-bottom: 20px; color: #000; }}
         .section-title {{ font-size: 18px; font-weight: bold; margin: 30px 0 15px 0; color: #000; }}
         table {{ width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 11px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-        th {{ background-color: #646db1; color: white; padding: 12px 8px; text-align: center; font-weight: bold; border: 1px solid #5560a0; font-size: 11px; line-height: 1.3; }}
+        th {{ background-color: #646db1; color: white; padding: 12px 8px; text-align: center; font-weight: bold; border: 1px solid #5560a0; font-size: 11px; line-height: 1.3; min-width: 80px; }}
         td {{ padding: 10px 8px; border: 1px solid #e0e0e0; color: #000; }}
         tr:nth-child(even) {{ background-color: #f9f9f9; }}
         tr:hover {{ background-color: #f0f0f0; }}
@@ -338,7 +359,7 @@ def build_html_v3(table_df, ps_content):
                         <th>Volume MTT<br>Ocrevus IV+SC<br>dans le mois</th>
                         <th>Nombre de<br>commandes<br>dans le mois<br>d'Ocrevus IV+SC</th>
                         <th>Date 1ère<br>commande<br>Ocrevus SC</th>
-                        <th>Moyenne des<br>Volumes MTT<br>Ocrevus IV+SC<br>des 4 derniers mois</th>
+                        <th>CM4</th>
                     </tr>
                 </thead>
                 <tbody>{rows}</tbody>
