@@ -130,6 +130,35 @@ def fetch_tableau_data():
         csv_data = io.StringIO(b"".join(target_view.csv).decode("utf-8"))
         return pd.read_csv(csv_data)
 
+def fetch_tableau_view(view_name):
+    """Fetch data from a specific Tableau view"""
+    print(f"--- Fetching additional view: {view_name} ---")
+    auth = TSC.PersonalAccessTokenAuth(TOKEN_NAME, TOKEN_SECRET, site_id=SITE_ID)
+    server = TSC.Server(SERVER_URL, use_server_version=True)
+    
+    with server.auth.sign_in(auth):
+        req = TSC.RequestOptions()
+        req.filter.add(TSC.Filter(TSC.RequestOptions.Field.Name, TSC.RequestOptions.Operator.Equals, WORKBOOK_NAME))
+        workbooks, _ = server.workbooks.get(req)
+        
+        target_view = None
+        for wb in workbooks:
+            server.workbooks.populate_views(wb)
+            for view in wb.views:
+                if view.name == view_name:
+                    target_view = view
+                    break
+            if target_view: break
+            
+        if not target_view: 
+            print(f"⚠ View '{view_name}' not found")
+            return None
+        
+        print(f"✓ Downloading data from view: {view_name}")
+        server.views.populate_csv(target_view)
+        csv_data = io.StringIO(b"".join(target_view.csv).decode("utf-8"))
+        return pd.read_csv(csv_data)
+
 # =============================================================================
 # PROCESSING
 # =============================================================================
@@ -254,7 +283,7 @@ def calculate_metrics(df):
 # CHART GENERATION
 # =============================================================================
 
-def generate_charts(df_full):
+def generate_charts(df_full, df_rated_centers=None):
     print("--- Generating Charts ---")
     
     # Current month
@@ -263,38 +292,66 @@ def generate_charts(df_full):
     iv = df_mtd['volume_iv'].sum()
     sc = df_mtd['volume_sc'].sum()
     
-    # Chart 1: KPI - Centers with SC (using most recent ratings)
-    # Get centers with SC sales
+    # Chart 1: KPI - Centers with SC as % of total per category
     chainages_with_sc = df_full[df_full['volume_sc'] > 0]['chainage_cip'].unique()
-    # Get most recent rating for each center
     df_recent_ratings = df_full.sort_values('date_day', ascending=False).drop_duplicates('chainage_cip')[['chainage_cip', 'category']]
-    # Filter to only centers with SC
     df_sc_centers = df_recent_ratings[df_recent_ratings['chainage_cip'].isin(chainages_with_sc)]
     
-    # Replace C4 with "Autres" (or filter out if no C4)
+    # Replace C4 with "Autres"
     df_sc_centers['category'] = df_sc_centers['category'].replace('C4', 'Autres')
     
-    df_kpi = df_sc_centers.groupby('category').size().reset_index(name='Nombre de centres')
+    # Count centers with SC per category
+    df_kpi = df_sc_centers.groupby('category').size().reset_index(name='centres_with_sc')
     df_kpi = df_kpi.rename(columns={'category': 'Catégorie'})
     
-    # Ensure all categories present (including Autres if exists)
-    all_cats = pd.DataFrame({'Catégorie': ['C1', 'C2', 'C3', 'Autres']})
-    df_kpi = all_cats.merge(df_kpi, on='Catégorie', how='left')
-    df_kpi['Nombre de centres'] = df_kpi['Nombre de centres'].fillna(0).astype(int)
-    # KEEP all categories even with 0 (don't filter them out)
-    total_hco = df_kpi['Nombre de centres'].sum()
+    # Get total centers per category from rated_centers worksheet
+    if df_rated_centers is not None:
+        # Process rated_centers data
+        # Expected columns: Ratingtcd, SUM(#)
+        df_totals = df_rated_centers.copy()
+        df_totals.columns = ['Catégorie', 'total_centres']
+        
+        # Merge with centers that have SC
+        df_kpi = df_totals.merge(df_kpi, on='Catégorie', how='left')
+        df_kpi['centres_with_sc'] = df_kpi['centres_with_sc'].fillna(0).astype(int)
+        
+        # Calculate percentage
+        df_kpi['percentage'] = (df_kpi['centres_with_sc'] / df_kpi['total_centres'] * 100).round(1)
+        
+        # For Autres: sum Autres + DROM COM + OoT
+        autres_cats = ['Autres', 'DROM COM', 'OoT']
+        if set(autres_cats).issubset(set(df_kpi['Catégorie'])):
+            autres_total = df_kpi[df_kpi['Catégorie'].isin(autres_cats)]['total_centres'].sum()
+            autres_sc = df_kpi[df_kpi['Catégorie'].isin(autres_cats)]['centres_with_sc'].sum()
+            autres_pct = (autres_sc / autres_total * 100).round(1) if autres_total > 0 else 0
+            
+            # Update Autres row and remove DROM COM, OoT
+            df_kpi.loc[df_kpi['Catégorie'] == 'Autres', 'percentage'] = autres_pct
+            df_kpi.loc[df_kpi['Catégorie'] == 'Autres', 'centres_with_sc'] = autres_sc
+            df_kpi.loc[df_kpi['Catégorie'] == 'Autres', 'total_centres'] = autres_total
+            df_kpi = df_kpi[~df_kpi['Catégorie'].isin(['DROM COM', 'OoT'])]
+    else:
+        # Fallback if no rated_centers data
+        print("⚠ No rated_centers data, using counts instead of percentages")
+        all_cats = pd.DataFrame({'Catégorie': ['C1', 'C2', 'C3', 'Autres']})
+        df_kpi = all_cats.merge(df_kpi, on='Catégorie', how='left')
+        df_kpi['centres_with_sc'] = df_kpi['centres_with_sc'].fillna(0).astype(int)
+        df_kpi['percentage'] = df_kpi['centres_with_sc']  # Use count as fallback
     
-    fig_kpi = px.bar(df_kpi, x='Catégorie', y='Nombre de centres',
-                     color_discrete_sequence=[COLORS['ocrevus_sc']], text='Nombre de centres')
+    total_hco = df_kpi['centres_with_sc'].sum()
+    
+    # Create chart with percentages
+    fig_kpi = px.bar(df_kpi, x='Catégorie', y='percentage',
+                     color_discrete_sequence=[COLORS['ocrevus_sc']], 
+                     text='percentage')
     
     # KPI Digit Outside to the LEFT
-    # Added left margin to accommodate the digit
     fig_kpi.update_layout(
         template='plotly_white', height=500, width=700,
         font=dict(family=FONT_FAMILY, size=CHART_TEXT_MAIN),
-        title=dict(text='Nombre de centres qui ont initié Ocrevus SC', 
+        title=dict(text='% de centres qui ont initié Ocrevus SC par catégorie', 
                   font=dict(size=24, family=FONT_FAMILY), y=0.98, x=0.5, xanchor='center'),
-        yaxis=dict(visible=False),  # Hide y-axis
+        yaxis=dict(visible=False),
         xaxis=dict(title=None),
         margin=dict(l=150, b=140, t=80)
     )
@@ -313,8 +370,13 @@ def generate_charts(df_full):
         font=dict(size=CHART_ANNOTATION, family=FONT_FAMILY), align="center"
     )
     
-    # Center labels inside bars
-    fig_kpi.update_traces(textfont=dict(size=CHART_TEXT_MAIN), textposition='inside', insidetextanchor='middle')
+    # Center labels inside bars with % symbol
+    fig_kpi.update_traces(
+        texttemplate='%{text}%',  # Add % symbol
+        textfont=dict(size=CHART_TEXT_MAIN), 
+        textposition='inside', 
+        insidetextanchor='middle'
+    )
     fig_kpi.write_image('/tmp/kpi.png', scale=2)
     
     # Chart 2: Pie
@@ -430,6 +492,70 @@ def generate_charts(df_full):
 # EMAIL GENERATION
 # =============================================================================
 
+def generate_ambition_text(df_ambitions, reference_date):
+    """Generate ambition text from Tableau ambitions worksheet based on reference date"""
+    if df_ambitions is None or df_ambitions.empty:
+        return None
+    
+    try:
+        # Get month/year from reference date
+        month_names = {
+            1: 'janvier', 2: 'février', 3: 'mars', 4: 'avril',
+            5: 'mai', 6: 'juin', 7: 'juillet', 8: 'août',
+            9: 'septembre', 10: 'octobre', 11: 'novembre', 12: 'décembre'
+        }
+        ref_month = reference_date.month
+        ref_year = reference_date.year
+        month_fr = month_names[ref_month]
+        
+        print(f"📅 Reference date for ambition: {reference_date.strftime('%d/%m/%Y')} → {month_fr} {ref_year}")
+        
+        # Find IV and SC columns (flexible naming)
+        iv_col = next((col for col in df_ambitions.columns if 'IV' in col.upper() and 'SC' not in col.upper()), None)
+        sc_col = next((col for col in df_ambitions.columns if 'SC' in col.upper()), None)
+        
+        if not iv_col or not sc_col:
+            print(f"⚠ Could not find IV/SC columns. Columns: {df_ambitions.columns.tolist()}")
+            return None
+        
+        print(f"✓ Using columns: {iv_col}, {sc_col}")
+        
+        # Find month column (End Month, Date, etc.)
+        month_col = next((col for col in df_ambitions.columns if any(x in col.upper() for x in ['MONTH', 'DATE', 'END'])), None)
+        
+        if not month_col:
+            print(f"⚠ No month column found. Columns: {df_ambitions.columns.tolist()}")
+            return None
+        
+        print(f"✓ Using month column: {month_col}")
+        
+        # Convert End Month to datetime if it's a string
+        df_ambitions[month_col] = pd.to_datetime(df_ambitions[month_col], errors='coerce')
+        
+        # Filter rows matching reference month and year
+        df_current = df_ambitions[
+            (df_ambitions[month_col].dt.month == ref_month) &
+            (df_ambitions[month_col].dt.year == ref_year)
+        ]
+        
+        if df_current.empty:
+            print(f"⚠ No ambition data for {month_fr} {ref_year}, using last row")
+            df_current = df_ambitions.iloc[-1:]
+        else:
+            print(f"✓ Found ambition data for {month_fr} {ref_year}")
+        
+        iv_vol = int(df_current[iv_col].iloc[0])
+        sc_vol = int(df_current[sc_col].iloc[0])
+        split_pct = round((sc_vol / (iv_vol + sc_vol)) * 100) if (iv_vol + sc_vol) > 0 else 0
+        
+        return f"Ambition {month_fr} : volumes Ocrevus IV : {iv_vol:,} / volumes Ocrevus SC : {sc_vol} / Split SC/IV : {split_pct}%".replace(',', ' ')
+    
+    except Exception as e:
+        print(f"⚠ Error generating ambition text: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 def get_ai_content(iv, sc, total_centers, target_total=4686, sector_name=None, sector_iv=None, sector_sc=None):
     """Generate AI content if USE_AI=1"""
     if USE_AI != 1:
@@ -486,18 +612,29 @@ IMPORTANT: Ne PAS inclure de références ou de citations comme [1], [2]."""
         print(f"AI Error: {e}")
         return "Le rythme global est excellent. Nous attendons avec confiance les premières commandes SC pour compléter cette belle dynamique."
 
-def build_html_v4(table_df, ps_content=None, tracking_id=None):
+def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=None):
     """Build HTML with updated styling and optional tracking pixel"""
     
-    df_sorted = table_df.sort_values('Volume MTT Ocrevus IV+SC dans le mois', ascending=False)
+    # Define rating sort order
+    rating_order = {'C1': 1, 'C2': 2, 'C3': 3, 'Autres': 4, 'DROM COM': 5, 'OoT': 6}
+    table_df['rating_sort'] = table_df['Catégorie de centres'].map(rating_order).fillna(99)
+    
+    # Sort by rating first, then by volume descending
+    df_sorted = table_df.sort_values(
+        by=['rating_sort', 'Volume MTT Ocrevus IV+SC dans le mois'],
+        ascending=[True, False]
+    )
     
     rows = ""
     for _, row in df_sorted.iterrows():
+        # Highlight SC column if value > 0
+        sc_bg = "background-color: #ffffe0;" if row['Volume MTT Ocrevus SC de la veille'] > 0 else ""
+        
         rows += f"""
         <tr>
             <td style="font-size: 11px; color: #000;">{row['Centres']}</td>
             <td style="text-align: center; font-size: 11px; color: #000;">{row['Catégorie de centres']}</td>
-            <td style="text-align: center; font-size: 11px; color: #000;">{row['Volume MTT Ocrevus SC de la veille']}</td>
+            <td style="text-align: center; font-size: 11px; color: #000; {sc_bg}">{row['Volume MTT Ocrevus SC de la veille']}</td>
             <td style="text-align: center; font-size: 11px; color: #000;">{row['Volume MTT Ocrevus IV de la veille']}</td>
             <td style="text-align: center; font-weight: bold; font-size: 11px; color: #000;">{row['Volume MTT Ocrevus IV+SC dans le mois']}</td>
             <td style="text-align: center; font-size: 11px; color: #000;">{row["Nombre de commandes dans le mois d'Ocrevus IV+SC"]}</td>
@@ -509,6 +646,11 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None):
     ps_section = ""
     if ps_content:
         ps_section = f'<div class="ps"><strong>P.S. AI</strong> {ps_content}</div>'
+    
+    # Build ambition section if ambition_text exists
+    ambition_section = ""
+    if ambition_text:
+        ambition_section = f'<div style="margin-top: 10px; font-size: 12px; font-style: italic; text-align: center; color: #555;">{ambition_text}</div>'
     
     # Build tracking pixel if tracking_id exists
     tracking_pixel = ""
@@ -571,7 +713,7 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None):
                         <th>Volume MTT<br>Ocrevus IV+SC<br>dans le mois</th>
                         <th>Nombre de<br>commandes<br>dans le mois<br>d'Ocrevus IV+SC</th>
                         <th>Date 1ère<br>commande<br>Ocrevus SC</th>
-                        <th>AVG IV+SC CM4</th>
+                        <th>Moyenne des Volumes MTT<br>Ocrevus IV+SC<br>des 4 derniers mois</th>
                     </tr>
                 </thead>
                 <tbody>{rows}</tbody>
@@ -593,7 +735,10 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None):
             <div class="kpi-container">
                 <div class="kpi-card"><img src="cid:kpi_chart" style="width: 100%; border-radius: 4px;"></div>
                 <div class="vertical-separator"></div>
-                <div class="kpi-card"><img src="cid:vol_chart" style="width: 100%; border-radius: 4px;"></div>
+                <div class="kpi-card">
+                    <img src="cid:vol_chart" style="width: 100%; border-radius: 4px;">
+                    {ambition_section}
+                </div>
             </div>
             
             <div class="separator"></div>
@@ -606,7 +751,7 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None):
             <div class="chart"><img src="cid:monthly_chart" style="width: 100%; max-width: 900px; border-radius: 4px;"></div>
             
             <div class="signature">
-                Merci à tous pour l'engagement que vous avez autour d'Ocrevus SC ! Keep going<br><br>
+                Merci à tous pour l'engagement que vous avez autour d'Ocrevus SC ! Keep going 🚀<br><br>
                 Bien à vous,<br>
                 <strong>Nele et Diane-Laure</strong>
             </div>
@@ -653,21 +798,27 @@ if __name__ == "__main__":
     try:
         print(f"--- Starting Ocrevus Report ({ACTIVE_RECIPIENT_GROUP}, AI={'ON' if USE_AI else 'OFF'}) ---")
         
-        # Extract
+        # Extract main data
         df_raw = fetch_tableau_data()
+        
+        # Extract additional worksheets
+        df_rated_centers = fetch_tableau_view('rated_centers')
+        df_ambitions = fetch_tableau_view('ambitions')
         
         # Transform
         df = unpivot_data(df_raw)
         
-        # Calculate
-        final_table = calculate_metrics(df)
+        # Charts (pass rated_centers for percentage calculation)
+        vol_iv, vol_sc, total_centers = generate_charts(df, df_rated_centers)
         
-        # Charts
-        vol_iv, vol_sc, total_centers = generate_charts(df)
-        
-        # Date
+        # Date - use yesterday for both subject line AND ambition month
         yesterday = datetime.now() - timedelta(days=1)
         date_str = yesterday.strftime('%d/%m/%Y')
+        
+        # Generate ambition text based on yesterday's date (same as subject)
+        ambition_text = generate_ambition_text(df_ambitions, yesterday)
+        if ambition_text:
+            print(f"✓ Ambition text: {ambition_text}")
         
         # National metrics
         nat_iv = int(final_table['Volume MTT Ocrevus IV de la veille'].sum())
@@ -699,7 +850,7 @@ if __name__ == "__main__":
                     subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
-                    html = build_html_v4(df_sec, ps_content, tracking_id)
+                    html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
                     send_email(list(set(recipients)), subject, html)
                     time.sleep(1)
             
@@ -722,7 +873,7 @@ if __name__ == "__main__":
                     subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
-                    html = build_html_v4(df_sec, ps_content, tracking_id)
+                    html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
                     send_email(list(set(recipients)), subject, html)
                     time.sleep(1)
             
@@ -745,7 +896,7 @@ if __name__ == "__main__":
                     subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
-                    html = build_html_v4(df_sec, ps_content, tracking_id)
+                    html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
                     send_email(list(set(recipients)), subject, html)
                     time.sleep(1)
             
@@ -754,7 +905,7 @@ if __name__ == "__main__":
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers)
             subject_nat = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}"
             tracking_id = generate_tracking_id(RECIPIENT_GROUPS['prod_national_view'][0], 'NATIONAL', date_str)
-            html_nat = build_html_v4(final_table, ps_content, tracking_id)
+            html_nat = build_html_v4(final_table, ps_content, tracking_id, ambition_text)
             send_email(RECIPIENT_GROUPS['prod_national_view'], subject_nat, html_nat)
         
         elif ACTIVE_RECIPIENT_GROUP == 'test_3':
@@ -778,7 +929,7 @@ if __name__ == "__main__":
             subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {target_sector}: IV={sec_iv}, SC={sec_sc}"
             
             tracking_id = generate_tracking_id(RECIPIENT_GROUPS['test_3'][0], target_sector, date_str)
-            html = build_html_v4(df_sec, ps_content, tracking_id)
+            html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
             send_email(RECIPIENT_GROUPS['test_3'], subject, html)
         
         else:
@@ -790,7 +941,7 @@ if __name__ == "__main__":
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers)
             
             tracking_id = generate_tracking_id(recipients[0], 'NATIONAL', date_str)
-            html = build_html_v4(final_table, ps_content, tracking_id)
+            html = build_html_v4(final_table, ps_content, tracking_id, ambition_text)
             send_email(recipients, subject, html)
         
         print("✅ Process Complete")
