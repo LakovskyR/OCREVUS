@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Ocrevus Automation Script v4.7
+Ocrevus Automation Script v4.8
 - Visual fixes: Aligned legends for Chart 1 & 2
 - Visual: Legends moved closer to charts
 - Fix: Robust number parsing (comma handling for French decimals)
+- Visual: Chart 2 legend size reduced (-1) and colored grey to match Chart 1
 """
 
 import os
@@ -446,7 +447,7 @@ def generate_charts(df_full, df_rated_centers=None):
         sc_labels = [str(int(v)) if v > 0 else '' for v in df_d['volume_sc']]
         fig_d.add_trace(go.Bar(x=df_d['day_label'], y=df_d['volume_sc'], name='SC', marker=dict(color=COLORS['ocrevus_sc']), text=sc_labels, textposition='outside', textfont=dict(size=10), textangle=0, cliponaxis=False))
     
-    fig_d.update_layout(barmode='stack', template='plotly_white', height=350, width=800, title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC', font=dict(size=CHART_TITLE_SIZE), x=0.5, xanchor='center'), yaxis=dict(visible=False), xaxis=dict(tickangle=-45), showlegend=False)
+    fig_d.update_layout(barmode='stack', template='plotly_white', height=350, width=800, title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC', font=dict(size=CHART_TITLE_SIZE), x=0.5, xanchor='center'), yaxis=dict(visible=False, xaxis=dict(tickangle=-45), showlegend=False))
     fig_d.write_image('/tmp/daily.png', scale=2)
     
     # Chart 4: Monthly
@@ -543,7 +544,8 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         td {{ padding: 10px 8px; border: 1px solid #e0e0e0; color: #000; }}
         tr:nth-child(even) {{ background-color: #f9f9f9; }}
         tr:hover {{ background-color: #f0f0f0; }}
-        .legend {{ display: flex; justify-content: center; margin: 20px 0; font-size: 16px; font-weight: bold; }}
+        /* VISUAL FIX: Legend text styling for Chart 2 - reduced size (-1) and grey color */
+        .legend {{ display: flex; justify-content: center; margin: 20px 0; font-size: 15px; font-weight: bold; color: #555; }}
         .legend-item {{ display: flex; align-items: center; margin: 0 30px; }}
         .legend-box {{ width: 30px; height: 20px; border-radius: 4px; margin-right: 15px; }}
         .separator {{ height: 2px; background: #e0e0e0; margin: 30px 0; }}
