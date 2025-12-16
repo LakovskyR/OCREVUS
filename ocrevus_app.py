@@ -211,8 +211,8 @@ def calculate_metrics(df):
     df_first_sc = df[df['volume_sc'] > 0].groupby('chainage_cip')['date_day'].min().reset_index()
     df_first_sc.columns = ['chainage_cip', 'date_first_sc']
     
-    # Category
-    cats = df.groupby('chainage_cip')['category'].first().reset_index()
+    # Category - get most recent rating per chainage
+    cats = df.sort_values('date_day', ascending=False).groupby('chainage_cip')['category'].first().reset_index()
     
     # Sector info
     sector_info = df[['chainage_cip', 'secteur_promo', 'secteur_medical', 'secteur_ma', 
@@ -263,8 +263,13 @@ def generate_charts(df_full):
     iv = df_mtd['volume_iv'].sum()
     sc = df_mtd['volume_sc'].sum()
     
-    # Chart 1: KPI - Centers with SC
-    df_sc_centers = df_full[df_full['volume_sc'] > 0][['chainage_cip', 'category']].drop_duplicates()
+    # Chart 1: KPI - Centers with SC (using most recent ratings)
+    # Get centers with SC sales
+    chainages_with_sc = df_full[df_full['volume_sc'] > 0]['chainage_cip'].unique()
+    # Get most recent rating for each center
+    df_recent_ratings = df_full.sort_values('date_day', ascending=False).drop_duplicates('chainage_cip')[['chainage_cip', 'category']]
+    # Filter to only centers with SC
+    df_sc_centers = df_recent_ratings[df_recent_ratings['chainage_cip'].isin(chainages_with_sc)]
     df_kpi = df_sc_centers.groupby('category').size().reset_index(name='Nombre de centres')
     df_kpi = df_kpi.rename(columns={'category': 'Catégorie'})
     
@@ -314,7 +319,9 @@ def generate_charts(df_full):
         labels=labels, values=values, marker=dict(colors=colors),
         textinfo='label+value+percent',
         texttemplate='%{label}<br>%{value:,.0f}<br>(%{percent})',
-        textfont=dict(size=16, family=FONT_FAMILY)  # +1 size (was 15)
+        textfont=dict(size=16, family=FONT_FAMILY),  # +1 size (was 15)
+        textposition='inside',  # Force labels inside
+        insidetextfont=dict(size=16, color='white')  # Ensure readable
     )])
     
     fig_vol.update_layout(
@@ -326,51 +333,41 @@ def generate_charts(df_full):
     
     fig_vol.write_image('/tmp/vol.png', scale=2)
     
-    # Chart 3: Daily (FRENCH DAY LABELS)
-    yesterday = datetime.now() - timedelta(days=1)
-    yesterday_weekday = yesterday.weekday()
+    # Chart 3: Daily - LAST 30 DAYS with dd/mm labels
+    today = datetime.now().date()
+    last_30_days = [(today - timedelta(days=i)) for i in range(30, 0, -1)]
     
-    if yesterday_weekday >= 5:
-        last_friday = yesterday - timedelta(days=yesterday_weekday - 4)
-    else:
-        last_friday = yesterday
+    df_d = df_full[df_full['date_day'].dt.date.isin(last_30_days)].groupby('date_day').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().sort_values('date_day')
     
-    business_days = []
-    current_day = last_friday
-    while len(business_days) < 5:
-        if current_day.weekday() < 5:
-            business_days.insert(0, current_day.date())
-        current_day -= timedelta(days=1)
-    
-    df_d = df_full[df_full['date_day'].dt.date.isin(business_days)].groupby('date_day').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().sort_values('date_day')
-    
-    # FRENCH DAY LABELS
-    day_map = {'Mon': 'Lun', 'Tue': 'Mar', 'Wed': 'Mer', 'Thu': 'Jeu', 'Fri': 'Ven'}
-    df_d['day'] = df_d['date_day'].dt.strftime('%a').map(day_map)
+    # dd/mm labels
+    df_d['day_label'] = df_d['date_day'].dt.strftime('%d/%m')
     
     fig_d = go.Figure()
     
     fig_d.add_trace(go.Bar(
-        x=df_d['day'], y=df_d['volume_iv'], name='IV',
+        x=df_d['day_label'], y=df_d['volume_iv'], name='IV',
         marker=dict(color=COLORS['ocrevus_iv']),
         text=df_d['volume_iv'].astype(int),
         textposition='inside', insidetextanchor='middle',
-        textfont=dict(color='white')
+        textfont=dict(color='white', size=10)  # Smaller text
     ))
     
     if df_d['volume_sc'].sum() > 0:
         fig_d.add_trace(go.Bar(
-            x=df_d['day'], y=df_d['volume_sc'], name='SC',
+            x=df_d['day_label'], y=df_d['volume_sc'], name='SC',
             marker=dict(color=COLORS['ocrevus_sc']),
             text=df_d['volume_sc'].astype(int),
-            textposition='inside', insidetextanchor='middle'
+            textposition='inside', insidetextanchor='middle',
+            textfont=dict(size=10),  # Smaller text, not white so visible on yellow
+            textangle=0  # Not pivoted (horizontal)
         ))
     
     fig_d.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC',
-                  font=dict(size=18), x=0.5, xanchor='center'),  # Size 18, centered
+                  font=dict(size=18), x=0.5, xanchor='center'),
         yaxis=dict(visible=False),
+        xaxis=dict(tickangle=-45),  # Angle x-axis labels for readability
         showlegend=False
     )
     
@@ -386,14 +383,14 @@ def generate_charts(df_full):
     fig_m.add_trace(go.Bar(
         x=df_m['lbl'], y=df_m['volume_iv'], name='IV',
         marker=dict(color=COLORS['ocrevus_iv']),
-        text=[f'{v/1000:.2f}K' for v in df_m['volume_iv']],
+        text=[f'{int(v):,}'.replace(',', ' ') for v in df_m['volume_iv']],  # Space separator
         textposition='outside'
     ))
     
     fig_m.add_trace(go.Bar(
         x=df_m['lbl'], y=df_m['volume_sc'], name='SC',
         marker=dict(color=COLORS['ocrevus_sc']),
-        text=[f'{v/1000:.2f}K' if v>0 else '' for v in df_m['volume_sc']],
+        text=[f'{int(v):,}'.replace(',', ' ') if v>0 else '' for v in df_m['volume_sc']],  # Space separator
         textposition='outside'
     ))
     
