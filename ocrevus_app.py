@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Ocrevus Automation Script v4.1
+Ocrevus Automation Script v4.2
 - Pixel tracking integration
-- Updated chart titles & styling (Larger titles for 1 & 2)
+- Updated chart titles & styling
 - Legend spacing fix for email clients
 - KPI Digit moved outside chart
+- Fix: Ambition date parsing (French support)
+- Fix: Pie chart legend restored (bottom)
 """
 
 import os
@@ -396,15 +398,24 @@ def generate_charts(df_full, df_rated_centers=None):
         textfont=dict(size=16, family=FONT_FAMILY),
         textposition='inside',
         insidetextfont=dict(size=16, color='white'),
-        direction='clockwise',  # Ensure proper label positioning
-        sort=False  # Don't sort, keep IV first, SC second
+        direction='clockwise',
+        sort=False
     )])
     
     fig_vol.update_layout(
         title=dict(text='Ventes Ocrevus SC / IV sur le mois en cours',
-                  x=0.5, y=0.98, xanchor='center', font=dict(size=24, family=FONT_FAMILY)),  # Added y=0.98 to align with Chart 1
-        template='plotly_white', height=550, width=700,  # Even bigger
-        margin=dict(l=50, r=50, t=80, b=170), showlegend=False
+                  x=0.5, y=0.98, xanchor='center', font=dict(size=24, family=FONT_FAMILY)),
+        template='plotly_white', height=550, width=700,
+        margin=dict(l=50, r=50, t=80, b=100), # Increased bottom margin for legend
+        showlegend=True,  # Enable legend
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.1,  # Position under chart
+            xanchor="center",
+            x=0.5,
+            font=dict(size=14, family=FONT_FAMILY)
+        )
     )
     
     fig_vol.write_image('/tmp/vol.png', scale=2)
@@ -534,17 +545,45 @@ def generate_ambition_text(df_ambitions, reference_date):
         
         print(f"✓ Using month column: {month_col}")
         
-        # Convert End Month to datetime if it's a string
-        df_ambitions[month_col] = pd.to_datetime(df_ambitions[month_col], errors='coerce')
+        # DATE PARSING FIX: Handle French dates or standard formats
+        # Attempt 1: Standard
+        df_ambitions['parsed_date'] = pd.to_datetime(df_ambitions[month_col], errors='coerce')
         
-        # Filter rows matching reference month and year
+        # Attempt 2: French parsing if standard failed for all/some
+        if df_ambitions['parsed_date'].isnull().any():
+            print("⚠ Standard date parse incomplete, trying French format...")
+            
+            # French month map reverse
+            fr_month_map = {v: k for k, v in month_names.items()}
+            fr_month_map.update({
+                'janv.': 1, 'févr.': 2, 'avr.': 4, 'juil.': 7, 
+                'sept.': 9, 'oct.': 10, 'nov.': 11, 'déc.': 12
+            })
+            
+            def parse_fr_ambition_date(val):
+                if pd.isna(val): return pd.NaT
+                val = str(val).lower().strip()
+                for fr_name, num in fr_month_map.items():
+                    if fr_name in val:
+                        # Extract year (assuming 4 digits)
+                        import re
+                        year_match = re.search(r'\d{4}', val)
+                        year = int(year_match.group(0)) if year_match else ref_year
+                        return datetime(year, num, 1)
+                return pd.NaT
+
+            # Fill NaT values using French parser
+            mask = df_ambitions['parsed_date'].isnull()
+            df_ambitions.loc[mask, 'parsed_date'] = df_ambitions.loc[mask, month_col].apply(parse_fr_ambition_date)
+        
+        # Filter rows matching reference month and year using the new 'parsed_date' column
         df_current = df_ambitions[
-            (df_ambitions[month_col].dt.month == ref_month) &
-            (df_ambitions[month_col].dt.year == ref_year)
+            (df_ambitions['parsed_date'].dt.month == ref_month) &
+            (df_ambitions['parsed_date'].dt.year == ref_year)
         ]
         
         if df_current.empty:
-            print(f"⚠ No ambition data for {month_fr} {ref_year}, using last row")
+            print(f"⚠ No ambition data for {month_fr} {ref_year} after parsing, using last row")
             df_current = df_ambitions.iloc[-1:]
         else:
             print(f"✓ Found ambition data for {month_fr} {ref_year}")
@@ -719,7 +758,7 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
                         <th>Volume MTT<br>Ocrevus IV+SC<br>dans le mois</th>
                         <th>Nombre de<br>commandes<br>dans le mois<br>d'Ocrevus IV+SC</th>
                         <th>Date 1ère<br>commande<br>Ocrevus SC</th>
-                        <th>Moyenne des Volumes MTT<br>Ocrevus IV+SC<br>des 4 derniers mois</th>
+                        <th>AVG IV+SC CM4</th>
                     </tr>
                 </thead>
                 <tbody>{rows}</tbody>
