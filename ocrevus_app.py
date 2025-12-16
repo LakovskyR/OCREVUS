@@ -416,21 +416,32 @@ def generate_charts(df_full, df_rated_centers=None):
     colors = [COLORS['ocrevus_iv'], COLORS['ocrevus_sc']] if sc > 0 else [COLORS['ocrevus_iv']]
     
     fig_vol = go.Figure(data=[go.Pie(
-        labels=labels, values=values, marker=dict(colors=colors),
-        textinfo='label+value+percent',
-        texttemplate='%{label}<br>%{value:,.0f}<br>(%{percent})',
-        textfont=dict(size=CHART_TEXT_MAIN, family=FONT_FAMILY),
-        textposition='inside', insidetextfont=dict(color='white'),
-        direction='clockwise', sort=False
-    )])
+    labels=labels,
+    values=values,
+    marker=dict(colors=colors),
+    textinfo='label+value+percent',
+    texttemplate='%{label}<br>%{value:,.0f}<br>(%{percent})',
+    textfont=dict(size=13, family=FONT_FAMILY),
+    textposition='outside',
+    pull=[0, 0],
+    direction='clockwise',
+    sort=False,
+    rotation=225)])
     
     fig_vol.update_layout(
-        title=dict(text='Ventes Ocrevus SC / IV sur le mois en cours',
-                  x=0.5, y=0.95, xanchor='center', font=dict(size=CHART_TITLE_SIZE, family=FONT_FAMILY)),
-        template='plotly_white', height=450, width=500,
-        margin=dict(l=20, r=20, t=60, b=20),
-        showlegend=False
-    )
+    title=dict(
+        text='Ventes Ocrevus SC / IV sur le mois en cours',
+        x=0.5,
+        y=0.95,
+        xanchor='center',
+        font=dict(size=CHART_TITLE_SIZE, family=FONT_FAMILY)
+    ),
+    template='plotly_white',
+    height=450,
+    width=500,
+    margin=dict(l=40, r=40, t=60, b=40),
+    showlegend=False)
+
     fig_vol.write_image('/tmp/vol.png', scale=2)
     
     # Chart 3: Daily
