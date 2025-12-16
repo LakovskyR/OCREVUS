@@ -281,8 +281,7 @@ def generate_charts(df_full):
     all_cats = pd.DataFrame({'Catégorie': ['C1', 'C2', 'C3', 'Autres']})
     df_kpi = all_cats.merge(df_kpi, on='Catégorie', how='left')
     df_kpi['Nombre de centres'] = df_kpi['Nombre de centres'].fillna(0).astype(int)
-    # Remove categories with 0 centers
-    df_kpi = df_kpi[df_kpi['Nombre de centres'] > 0]
+    # KEEP all categories even with 0 (don't filter them out)
     total_hco = df_kpi['Nombre de centres'].sum()
     
     fig_kpi = px.bar(df_kpi, x='Catégorie', y='Nombre de centres',
@@ -330,7 +329,8 @@ def generate_charts(df_full):
         textfont=dict(size=16, family=FONT_FAMILY),
         textposition='inside',
         insidetextfont=dict(size=16, color='white'),
-        pull=[0, 0.05] if sc > 0 else [0]  # Slightly pull SC slice for better label visibility
+        direction='clockwise',  # Ensure proper label positioning
+        sort=False  # Don't sort, keep IV first, SC second
     )])
     
     fig_vol.update_layout(
@@ -358,27 +358,33 @@ def generate_charts(df_full):
         marker=dict(color=COLORS['ocrevus_iv']),
         text=df_d['volume_iv'].astype(int),
         textposition='inside', 
-        textfont=dict(color='white', size=10),  # size=10 for 30 bars
-        insidetextanchor='start'  # Bottom of bar
+        textfont=dict(color='white', size=10),
+        insidetextanchor='start',  # Bottom of bar
+        cliponaxis=False  # Don't clip labels
     ))
     
     if df_d['volume_sc'].sum() > 0:
+        # Replace 0 with empty string for SC
+        sc_labels = [str(int(v)) if v > 0 else '' for v in df_d['volume_sc']]
+        
         fig_d.add_trace(go.Bar(
             x=df_d['day_label'], y=df_d['volume_sc'], name='SC',
             marker=dict(color=COLORS['ocrevus_sc']),
-            text=df_d['volume_sc'].astype(int),
+            text=sc_labels,  # Use filtered labels (no 0)
             textposition='outside',  # Above bar
-            textfont=dict(size=10),  # size=10 for 30 bars
-            textangle=0
+            textfont=dict(size=10),
+            textangle=0,
+            cliponaxis=False  # Don't clip labels
         ))
     
     fig_d.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC',
                   font=dict(size=18), x=0.5, xanchor='center'),
-        yaxis=dict(visible=False, rangemode='normal'),  # Allow auto-range for labels
+        yaxis=dict(visible=False, rangemode='normal'),
         xaxis=dict(tickangle=-45),
-        showlegend=False
+        showlegend=False,
+        uniformtext=dict(mode='hide', minsize=10)  # Hide labels that don't fit, don't resize
     )
     
     fig_d.write_image('/tmp/daily.png', scale=2)
@@ -411,8 +417,9 @@ def generate_charts(df_full):
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution mensuelle des volumes d\'Ocrevus IV et SC',
                   font=dict(size=18), x=0.5, xanchor='center'),
-        yaxis=dict(visible=False, range=[0, max(df_m['volume_iv'] + df_m['volume_sc']) * 1.5]),  # Increased from 1.4 to 1.5 for SC labels
-        showlegend=False
+        yaxis=dict(visible=False, range=[0, max(df_m['volume_iv'] + df_m['volume_sc']) * 1.5]),
+        showlegend=False,
+        uniformtext=dict(mode='hide', minsize=13)  # Hide labels that don't fit, don't resize
     )
     
     fig_m.write_image('/tmp/monthly.png', scale=2)
