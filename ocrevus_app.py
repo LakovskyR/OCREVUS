@@ -259,7 +259,12 @@ def unpivot_data(df_raw):
     
     df['date_day'] = df['date_day'].apply(parse_date)
     
-    # Convert volumes to numeric (handles strings from Tableau)
+    # CRITICAL: Convert French decimal format (2,5) to standard format (2.5) BEFORE numeric conversion
+    # If Tableau exports with French locale, commas must be replaced with periods
+    df['volume_iv'] = df['volume_iv'].astype(str).str.replace(',', '.', regex=False)
+    df['volume_sc'] = df['volume_sc'].astype(str).str.replace(',', '.', regex=False)
+    
+    # Convert volumes to numeric (now works with both 2.5 and 2,5 formats)
     df['volume_iv'] = pd.to_numeric(df['volume_iv'], errors='coerce').fillna(0)
     df['volume_sc'] = pd.to_numeric(df['volume_sc'], errors='coerce').fillna(0)
     
@@ -406,6 +411,9 @@ def generate_charts(df_full, df_rated_centers=None):
         df_totals = df_rated_centers.copy()
         df_totals.columns = ['Catégorie', 'total_centres']
         
+        # Convert French format (just in case) before numeric conversion
+        df_totals['total_centres'] = df_totals['total_centres'].astype(str).str.replace(',', '.', regex=False)
+        
         # Ensure numeric type
         df_totals['total_centres'] = pd.to_numeric(df_totals['total_centres'], errors='coerce').fillna(0).astype(int)
         
@@ -461,10 +469,10 @@ def generate_charts(df_full, df_rated_centers=None):
         font=dict(size=60, family=FONT_FAMILY), xanchor='center'
     )
     
-    # Ambition text BELOW chart
+    # Ambition text BELOW chart (reduced spacing to harmonize with chart 2)
     fig_kpi.add_annotation(
         text="<i>Ambition : 70% des C1/C2 et 50% des C3 ont commandé Ocrevus SC<br>dans les 4 mois suivants le lancement soit 119 centres</i>",
-        xref="paper", yref="paper", x=0.5, y=-0.28, showarrow=False,
+        xref="paper", yref="paper", x=0.5, y=-0.20, showarrow=False,
         font=dict(size=CHART_ANNOTATION, family=FONT_FAMILY), align="center"
     )
     
@@ -670,9 +678,13 @@ def generate_ambition_text(df_ambitions, reference_date):
         else:
             print(f"✓ Found {len(df_current)} row(s) for {month_fr} {ref_year}")
         
+        # Convert French decimal format (2,5) to standard (2.5) before numeric conversion
+        iv_val = str(df_current[iv_col].iloc[0]).replace(',', '.')
+        sc_val = str(df_current[sc_col].iloc[0]).replace(',', '.')
+        
         # Ensure numeric types
-        iv_vol = int(pd.to_numeric(df_current[iv_col].iloc[0], errors='coerce'))
-        sc_vol = int(pd.to_numeric(df_current[sc_col].iloc[0], errors='coerce'))
+        iv_vol = int(pd.to_numeric(iv_val, errors='coerce'))
+        sc_vol = int(pd.to_numeric(sc_val, errors='coerce'))
         split_pct = round((sc_vol / (iv_vol + sc_vol)) * 100) if (iv_vol + sc_vol) > 0 else 0
         
         return f"Ambition {month_fr} : volumes Ocrevus IV : {iv_vol:,} / volumes Ocrevus SC : {sc_vol} / Split SC/IV : {split_pct}%".replace(',', ' ')
@@ -757,11 +769,19 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         # Highlight SC column if value > 0
         sc_bg = "background-color: #ffffe0;" if row['Volume MTT Ocrevus SC de la veille'] > 0 else ""
         
-        # Format volumes to show decimals (e.g., 2.5 instead of 2.0 or 0)
-        vol_sc_veille = f"{row['Volume MTT Ocrevus SC de la veille']:.1f}" if pd.notna(row['Volume MTT Ocrevus SC de la veille']) else "0.0"
-        vol_iv_veille = f"{row['Volume MTT Ocrevus IV de la veille']:.1f}" if pd.notna(row['Volume MTT Ocrevus IV de la veille']) else "0.0"
-        vol_mtd = f"{row['Volume MTT Ocrevus IV+SC dans le mois']:.1f}" if pd.notna(row['Volume MTT Ocrevus IV+SC dans le mois']) else "0.0"
-        avg_4m = f"{row['Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois']:.1f}" if pd.notna(row['Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois']) else "0.0"
+        # Smart formatting: show decimals only when needed (2.5 stays 2.5, but 2.0 becomes 2)
+        def format_volume(val):
+            if pd.isna(val):
+                return "0"
+            if val == int(val):  # If it's a whole number
+                return str(int(val))
+            else:  # Has decimals
+                return f"{val:.1f}"
+        
+        vol_sc_veille = format_volume(row['Volume MTT Ocrevus SC de la veille'])
+        vol_iv_veille = format_volume(row['Volume MTT Ocrevus IV de la veille'])
+        vol_mtd = format_volume(row['Volume MTT Ocrevus IV+SC dans le mois'])
+        avg_4m = format_volume(row['Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois'])
         
         rows += f"""
         <tr>
@@ -780,8 +800,8 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
     if ps_content:
         ps_section = f'<div class="ps"><strong>P.S. AI</strong> {ps_content}</div>'
     
-    # Build ambition section - HARDCODED for now (size 12px to match chart 1 annotation style)
-    ambition_section = '<div style="margin-top: 5px; font-size: 12px; font-style: italic; text-align: center; color: #555;">Ambition décembre : volumes Ocrevus IV : 2 157 / volumes Ocrevus SC : 373 / Split SC/IV : 15%</div>'
+    # Build ambition section - HARDCODED for now (harmonized spacing with chart 1)
+    ambition_section = '<div style="margin-top: 8px; font-size: 12px; font-style: italic; text-align: center; color: #555;">Ambition décembre : volumes Ocrevus IV : 2 157 / volumes Ocrevus SC : 373 / Split SC/IV : 15%</div>'
     print(f"   ✓ Ambition section (hardcoded) will be rendered in HTML")
     
     # Build tracking pixel if tracking_id exists
@@ -999,7 +1019,7 @@ if __name__ == "__main__":
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers, 
                                                sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
                     
-                    subject = f"Votre quotidienne Ocrevus SC/IV - {date_str}"
+                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
@@ -1022,7 +1042,7 @@ if __name__ == "__main__":
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers,
                                                sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
                     
-                    subject = f"Votre quotidienne Ocrevus SC/IV - {date_str}"
+                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
@@ -1045,7 +1065,7 @@ if __name__ == "__main__":
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers,
                                                sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
                     
-                    subject = f"Votre quotidienne Ocrevus SC/IV - {date_str}"
+                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
@@ -1078,7 +1098,7 @@ if __name__ == "__main__":
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers,
                                        sector_name=target_sector, sector_iv=sec_iv, sector_sc=sec_sc)
             
-            subject = f"Votre quotidienne Ocrevus SC/IV - {date_str}"
+            subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
             
             tracking_id = generate_tracking_id(RECIPIENT_GROUPS['test_3'][0], target_sector, date_str)
             html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
@@ -1098,7 +1118,7 @@ if __name__ == "__main__":
             else:
                 recipients = RECIPIENT_GROUPS.get(ACTIVE_RECIPIENT_GROUP, [SENDER_EMAIL])
             
-            subject = f"Votre quotidienne Ocrevus SC/IV - {date_str}"
+            subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
             
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers)
             
