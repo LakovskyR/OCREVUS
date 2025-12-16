@@ -204,8 +204,10 @@ def unpivot_data(df_raw):
             return pd.NaT
     
     df['date_day'] = df['date_day'].apply(parse_date)
-    df['volume_iv'] = df['volume_iv'].fillna(0)
-    df['volume_sc'] = df['volume_sc'].fillna(0)
+    
+    # Convert volumes to numeric (handles strings from Tableau)
+    df['volume_iv'] = pd.to_numeric(df['volume_iv'], errors='coerce').fillna(0)
+    df['volume_sc'] = pd.to_numeric(df['volume_sc'], errors='coerce').fillna(0)
     
     return df
 
@@ -310,6 +312,9 @@ def generate_charts(df_full, df_rated_centers=None):
         # Expected columns: Ratingtcd, SUM(#)
         df_totals = df_rated_centers.copy()
         df_totals.columns = ['Catégorie', 'total_centres']
+        
+        # Ensure numeric type
+        df_totals['total_centres'] = pd.to_numeric(df_totals['total_centres'], errors='coerce').fillna(0).astype(int)
         
         # Merge with centers that have SC
         df_kpi = df_totals.merge(df_kpi, on='Catégorie', how='left')
@@ -544,8 +549,9 @@ def generate_ambition_text(df_ambitions, reference_date):
         else:
             print(f"✓ Found ambition data for {month_fr} {ref_year}")
         
-        iv_vol = int(df_current[iv_col].iloc[0])
-        sc_vol = int(df_current[sc_col].iloc[0])
+        # Ensure numeric types
+        iv_vol = int(pd.to_numeric(df_current[iv_col].iloc[0], errors='coerce'))
+        sc_vol = int(pd.to_numeric(df_current[sc_col].iloc[0], errors='coerce'))
         split_pct = round((sc_vol / (iv_vol + sc_vol)) * 100) if (iv_vol + sc_vol) > 0 else 0
         
         return f"Ambition {month_fr} : volumes Ocrevus IV : {iv_vol:,} / volumes Ocrevus SC : {sc_vol} / Split SC/IV : {split_pct}%".replace(',', ' ')
