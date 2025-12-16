@@ -593,7 +593,7 @@ def generate_ambition_text(df_ambitions, reference_date):
         sc_vol = int(pd.to_numeric(df_current[sc_col].iloc[0], errors='coerce'))
         split_pct = round((sc_vol / (iv_vol + sc_vol)) * 100) if (iv_vol + sc_vol) > 0 else 0
         
-        return f"Ambition {month_fr} : volumes Ocrevus IV : {iv_vol:,} / volumes Ocrevus SC : {sc_vol} / Split SC/IV : {split_pct}%".replace(',', ' ')
+        return f"ambition {month_fr} : volumes Ocrevus IV : {iv_vol:,} / volumes Ocrevus SC : {sc_vol} / Split SC/IV : {split_pct}%".replace(',', ' ')
     
     except Exception as e:
         print(f"⚠ Error generating ambition text: {e}")
