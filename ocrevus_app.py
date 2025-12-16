@@ -469,12 +469,7 @@ def generate_charts(df_full, df_rated_centers=None):
         font=dict(size=60, family=FONT_FAMILY), xanchor='center'
     )
     
-    # Ambition text BELOW chart (reduced spacing to harmonize with chart 2)
-    fig_kpi.add_annotation(
-        text="<i>Ambition : 70% des C1/C2 et 50% des C3 ont commandé Ocrevus SC<br>dans les 4 mois suivants le lancement soit 119 centres</i>",
-        xref="paper", yref="paper", x=0.5, y=-0.20, showarrow=False,
-        font=dict(size=CHART_ANNOTATION, family=FONT_FAMILY), align="center"
-    )
+    # NOTE: Ambition legend moved to HTML for alignment with Chart 2
     
     # Center labels inside bars with % symbol
     fig_kpi.update_traces(
@@ -751,7 +746,7 @@ IMPORTANT: Ne PAS inclure de références ou de citations comme [1], [2]."""
         print(f"AI Error: {e}")
         return "Le rythme global est excellent. Nous attendons avec confiance les premières commandes SC pour compléter cette belle dynamique."
 
-def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=None):
+def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=None, chart1_legend=None):
     """Build HTML with updated styling and optional tracking pixel"""
     
     # Define rating sort order
@@ -801,8 +796,16 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         ps_section = f'<div class="ps"><strong>P.S. AI</strong> {ps_content}</div>'
     
     # Build ambition section - HARDCODED for now (harmonized spacing with chart 1)
-    ambition_section = '<div style="margin-top: 8px; font-size: 12px; font-style: italic; text-align: center; color: #555;">Ambition décembre : volumes Ocrevus IV : 2 157 / volumes Ocrevus SC : 373 / Split SC/IV : 15%</div>'
-    print(f"   ✓ Ambition section (hardcoded) will be rendered in HTML")
+    # Build ambition section - HARDCODED for now (harmonized spacing with chart 1)
+    if not ambition_text:
+        ambition_section = '<div style="margin-top: 8px; font-size: 12px; font-style: italic; text-align: center; color: #555;">Ambition décembre : volumes Ocrevus IV : 2 157 / volumes Ocrevus SC : 373 / Split SC/IV : 15%</div>'
+        print(f"   ✓ Ambition section (hardcoded) will be rendered in HTML")
+    else:
+        ambition_section = f'<div style="margin-top: 8px; font-size: 12px; font-style: italic; text-align: center; color: #555;">{ambition_text}</div>'
+    
+    # Build Chart 1 legend section (slightly bigger to align visually with Chart 2)
+    if not chart1_legend:
+        chart1_legend = '<div style="margin-top: 8px; font-size: 13px; font-style: italic; text-align: center; color: #555;">Ambition : 70% des C1/C2 et 50% des C3 ont commandé Ocrevus SC<br>dans les 4 mois suivants le lancement soit 119 centres</div>'
     
     # Build tracking pixel if tracking_id exists
     tracking_pixel = ""
@@ -885,7 +888,10 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
             </div>
             
             <div class="kpi-container">
-                <div class="kpi-card"><img src="cid:kpi_chart" style="width: 100%; border-radius: 4px;"></div>
+                <div class="kpi-card">
+                    <img src="cid:kpi_chart" style="width: 100%; border-radius: 4px;">
+                    {chart1_legend}
+                </div>
                 <div class="vertical-separator"></div>
                 <div class="kpi-card">
                     <img src="cid:vol_chart" style="width: 100%; border-radius: 4px;">
