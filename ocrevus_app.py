@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Ocrevus Automation Script v4.2
+Ocrevus Automation Script v4.3
 - Pixel tracking integration
 - Updated chart titles & styling
 - Legend spacing fix for email clients
 - KPI Digit moved outside chart
-- Fix: Ambition date parsing (French support)
-- Fix: Pie chart legend restored (bottom)
+- Pie chart: Bigger, centered, labels +1 size, Legend removed (using text under chart instead)
+- Ambition text HARDCODED per request
 """
 
 import os
@@ -395,27 +395,19 @@ def generate_charts(df_full, df_rated_centers=None):
         labels=labels, values=values, marker=dict(colors=colors),
         textinfo='label+value+percent',
         texttemplate='%{label}<br>%{value:,.0f}<br>(%{percent})',
-        textfont=dict(size=16, family=FONT_FAMILY),
+        textfont=dict(size=16 + 1, family=FONT_FAMILY),  # +1 size
         textposition='inside',
-        insidetextfont=dict(size=16, color='white'),
-        direction='clockwise',
-        sort=False
+        insidetextfont=dict(size=17, color='white'),  # +1 size
+        direction='clockwise',  # Ensure proper label positioning
+        sort=False  # Don't sort, keep IV first, SC second
     )])
     
     fig_vol.update_layout(
         title=dict(text='Ventes Ocrevus SC / IV sur le mois en cours',
                   x=0.5, y=0.98, xanchor='center', font=dict(size=24, family=FONT_FAMILY)),
         template='plotly_white', height=550, width=700,
-        margin=dict(l=50, r=50, t=80, b=100), # Increased bottom margin for legend
-        showlegend=True,  # Enable legend
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-            y=-0.1,  # Position under chart
-            xanchor="center",
-            x=0.5,
-            font=dict(size=14, family=FONT_FAMILY)
-        )
+        margin=dict(l=10, r=10, t=80, b=10), # Tight margins for BIG pie
+        showlegend=False  # NO LEGEND requested
     )
     
     fig_vol.write_image('/tmp/vol.png', scale=2)
@@ -458,7 +450,7 @@ def generate_charts(df_full, df_rated_centers=None):
     fig_d.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC',
-                  font=dict(size=18), x=0.5, xanchor='center'),
+                  font=dict(size=17), x=0.5, xanchor='center'),  # Reduced size + centered
         yaxis=dict(visible=False, rangemode='normal'),
         xaxis=dict(tickangle=-45),
         showlegend=False,
@@ -494,7 +486,7 @@ def generate_charts(df_full, df_rated_centers=None):
     fig_m.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution mensuelle des volumes d\'Ocrevus IV et SC',
-                  font=dict(size=18), x=0.5, xanchor='center'),
+                  font=dict(size=17), x=0.5, xanchor='center'),  # Reduced size + centered
         yaxis=dict(visible=False, range=[0, max(df_m['volume_iv'] + df_m['volume_sc']) * 1.5]),
         showlegend=False,
         uniformtext=dict(mode='hide', minsize=13)  # Hide labels that don't fit, don't resize
@@ -509,97 +501,11 @@ def generate_charts(df_full, df_rated_centers=None):
 # =============================================================================
 
 def generate_ambition_text(df_ambitions, reference_date):
-    """Generate ambition text from Tableau ambitions worksheet based on reference date"""
-    if df_ambitions is None or df_ambitions.empty:
-        return None
-    
-    try:
-        # Get month/year from reference date
-        month_names = {
-            1: 'janvier', 2: 'février', 3: 'mars', 4: 'avril',
-            5: 'mai', 6: 'juin', 7: 'juillet', 8: 'août',
-            9: 'septembre', 10: 'octobre', 11: 'novembre', 12: 'décembre'
-        }
-        ref_month = reference_date.month
-        ref_year = reference_date.year
-        month_fr = month_names[ref_month]
-        
-        print(f"📅 Reference date for ambition: {reference_date.strftime('%d/%m/%Y')} → {month_fr} {ref_year}")
-        
-        # Find IV and SC columns (flexible naming)
-        iv_col = next((col for col in df_ambitions.columns if 'IV' in col.upper() and 'SC' not in col.upper()), None)
-        sc_col = next((col for col in df_ambitions.columns if 'SC' in col.upper()), None)
-        
-        if not iv_col or not sc_col:
-            print(f"⚠ Could not find IV/SC columns. Columns: {df_ambitions.columns.tolist()}")
-            return None
-        
-        print(f"✓ Using columns: {iv_col}, {sc_col}")
-        
-        # Find month column (End Month, Date, etc.)
-        month_col = next((col for col in df_ambitions.columns if any(x in col.upper() for x in ['MONTH', 'DATE', 'END'])), None)
-        
-        if not month_col:
-            print(f"⚠ No month column found. Columns: {df_ambitions.columns.tolist()}")
-            return None
-        
-        print(f"✓ Using month column: {month_col}")
-        
-        # DATE PARSING FIX: Handle French dates or standard formats
-        # Attempt 1: Standard
-        df_ambitions['parsed_date'] = pd.to_datetime(df_ambitions[month_col], errors='coerce')
-        
-        # Attempt 2: French parsing if standard failed for all/some
-        if df_ambitions['parsed_date'].isnull().any():
-            print("⚠ Standard date parse incomplete, trying French format...")
-            
-            # French month map reverse
-            fr_month_map = {v: k for k, v in month_names.items()}
-            fr_month_map.update({
-                'janv.': 1, 'févr.': 2, 'avr.': 4, 'juil.': 7, 
-                'sept.': 9, 'oct.': 10, 'nov.': 11, 'déc.': 12
-            })
-            
-            def parse_fr_ambition_date(val):
-                if pd.isna(val): return pd.NaT
-                val = str(val).lower().strip()
-                for fr_name, num in fr_month_map.items():
-                    if fr_name in val:
-                        # Extract year (assuming 4 digits)
-                        import re
-                        year_match = re.search(r'\d{4}', val)
-                        year = int(year_match.group(0)) if year_match else ref_year
-                        return datetime(year, num, 1)
-                return pd.NaT
-
-            # Fill NaT values using French parser
-            mask = df_ambitions['parsed_date'].isnull()
-            df_ambitions.loc[mask, 'parsed_date'] = df_ambitions.loc[mask, month_col].apply(parse_fr_ambition_date)
-        
-        # Filter rows matching reference month and year using the new 'parsed_date' column
-        df_current = df_ambitions[
-            (df_ambitions['parsed_date'].dt.month == ref_month) &
-            (df_ambitions['parsed_date'].dt.year == ref_year)
-        ]
-        
-        if df_current.empty:
-            print(f"⚠ No ambition data for {month_fr} {ref_year} after parsing, using last row")
-            df_current = df_ambitions.iloc[-1:]
-        else:
-            print(f"✓ Found ambition data for {month_fr} {ref_year}")
-        
-        # Ensure numeric types
-        iv_vol = int(pd.to_numeric(df_current[iv_col].iloc[0], errors='coerce'))
-        sc_vol = int(pd.to_numeric(df_current[sc_col].iloc[0], errors='coerce'))
-        split_pct = round((sc_vol / (iv_vol + sc_vol)) * 100) if (iv_vol + sc_vol) > 0 else 0
-        
-        return f"ambition {month_fr} : volumes Ocrevus IV : {iv_vol:,} / volumes Ocrevus SC : {sc_vol} / Split SC/IV : {split_pct}%".replace(',', ' ')
-    
-    except Exception as e:
-        print(f"⚠ Error generating ambition text: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
+    """
+    HARDCODED Ambition text as per user request (temporary fix).
+    Ignores input data and returns static string.
+    """
+    return "ambition décembre : volumes Ocrevus IV : 2157 / volumes Ocrevus SC : 373 / Split SC/IV : 10%"
 
 def get_ai_content(iv, sc, total_centers, target_total=4686, sector_name=None, sector_iv=None, sector_sc=None):
     """Generate AI content if USE_AI=1"""
@@ -692,10 +598,10 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
     if ps_content:
         ps_section = f'<div class="ps"><strong>P.S. AI</strong> {ps_content}</div>'
     
-    # Build ambition section if ambition_text exists
+    # Build ambition section if ambition_text exists (italic, centered, under chart)
     ambition_section = ""
     if ambition_text:
-        ambition_section = f'<div style="margin-top: 10px; font-size: 12px; font-style: italic; text-align: center; color: #555;">{ambition_text}</div>'
+        ambition_section = f'<div style="margin-top: 10px; font-size: 14px; font-style: italic; text-align: center; color: #000;">{ambition_text}</div>'
     
     # Build tracking pixel if tracking_id exists
     tracking_pixel = ""
@@ -727,7 +633,7 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         .separator {{ height: 2px; background: #e0e0e0; margin: 30px 0; }}
         .vertical-separator {{ width: 2px; background: #e0e0e0; }}
         .kpi-container {{ display: flex; justify-content: space-between; margin: 20px 0; gap: 20px; }}
-        .kpi-card {{ flex: 1; }}
+        .kpi-card {{ flex: 1; text-align: center; }}
         .chart {{ text-align: center; margin: 20px 0; }}
         .signature {{ margin-top: 30px; font-size: 14px; line-height: 1.8; color: #000; }}
         .ps {{ margin-top: 20px; padding: 15px; background-color: #f0f5ff; border-left: 4px solid #646db1; font-size: 13px; font-style: italic; color: #000; }}
@@ -863,10 +769,9 @@ if __name__ == "__main__":
         yesterday = datetime.now() - timedelta(days=1)
         date_str = yesterday.strftime('%d/%m/%Y')
         
-        # Generate ambition text based on yesterday's date (same as subject)
+        # Generate ambition text (HARDCODED)
         ambition_text = generate_ambition_text(df_ambitions, yesterday)
-        if ambition_text:
-            print(f"✓ Ambition text: {ambition_text}")
+        print(f"✓ Ambition text: {ambition_text}")
         
         # National metrics
         nat_iv = int(final_table['Volume MTT Ocrevus IV de la veille'].sum())
