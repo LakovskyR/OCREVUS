@@ -480,7 +480,7 @@ def generate_charts(df_full, df_rated_centers=None):
 
 def generate_ambition_text(df_ambitions, reference_date):
     """HARDCODED Ambition text"""
-    return "ambition décembre : volumes Ocrevus IV : 2157 / volumes Ocrevus SC : 373 / Split SC/IV : 10%"
+    return "ambition décembre : volumes Ocrevus IV : 2157 / volumes Ocrevus SC : 373 / Split SC/IV : 17%"
 
 def get_ai_content(iv, sc, total_centers, target_total=4686, sector_name=None, sector_iv=None, sector_sc=None):
     if USE_AI != 1: return None
