@@ -270,12 +270,19 @@ def generate_charts(df_full):
     df_recent_ratings = df_full.sort_values('date_day', ascending=False).drop_duplicates('chainage_cip')[['chainage_cip', 'category']]
     # Filter to only centers with SC
     df_sc_centers = df_recent_ratings[df_recent_ratings['chainage_cip'].isin(chainages_with_sc)]
+    
+    # Replace C4 with "Autres" (or filter out if no C4)
+    df_sc_centers['category'] = df_sc_centers['category'].replace('C4', 'Autres')
+    
     df_kpi = df_sc_centers.groupby('category').size().reset_index(name='Nombre de centres')
     df_kpi = df_kpi.rename(columns={'category': 'Catégorie'})
     
-    all_cats = pd.DataFrame({'Catégorie': ['C1', 'C2', 'C3', 'C4']})
+    # Ensure all categories present (including Autres if exists)
+    all_cats = pd.DataFrame({'Catégorie': ['C1', 'C2', 'C3', 'Autres']})
     df_kpi = all_cats.merge(df_kpi, on='Catégorie', how='left')
     df_kpi['Nombre de centres'] = df_kpi['Nombre de centres'].fillna(0).astype(int)
+    # Remove categories with 0 centers
+    df_kpi = df_kpi[df_kpi['Nombre de centres'] > 0]
     total_hco = df_kpi['Nombre de centres'].sum()
     
     fig_kpi = px.bar(df_kpi, x='Catégorie', y='Nombre de centres',
@@ -284,19 +291,19 @@ def generate_charts(df_full):
     # KPI Digit Outside to the LEFT
     # Added left margin to accommodate the digit
     fig_kpi.update_layout(
-        template='plotly_white', height=500, width=700, # Match Chart 2 width
+        template='plotly_white', height=500, width=700,
         font=dict(family=FONT_FAMILY, size=CHART_TEXT_MAIN),
         title=dict(text='Nombre de centres qui ont initié Ocrevus SC', 
                   font=dict(size=24, family=FONT_FAMILY), y=0.98, x=0.5, xanchor='center'),
-        yaxis=dict(rangemode='tozero', tick0=0, dtick=1, title=None),
+        yaxis=dict(visible=False),  # Hide y-axis
         xaxis=dict(title=None),
-        margin=dict(l=150, b=140, t=80) # Left margin for digit
+        margin=dict(l=150, b=140, t=80)
     )
     
     # Total number - LEFT ALIGNED, outside chart
     fig_kpi.add_annotation(
         text=f'<b>{total_hco}</b>', xref="paper", yref="paper",
-        x=-0.25, y=0.5, showarrow=False,  # Outside left, centered vertically
+        x=-0.25, y=0.5, showarrow=False,
         font=dict(size=60, family=FONT_FAMILY), xanchor='center'
     )
     
@@ -307,7 +314,8 @@ def generate_charts(df_full):
         font=dict(size=CHART_ANNOTATION, family=FONT_FAMILY), align="center"
     )
     
-    fig_kpi.update_traces(textfont=dict(size=CHART_TEXT_MAIN))
+    # Center labels inside bars
+    fig_kpi.update_traces(textfont=dict(size=CHART_TEXT_MAIN), textposition='inside', insidetextanchor='middle')
     fig_kpi.write_image('/tmp/kpi.png', scale=2)
     
     # Chart 2: Pie
@@ -319,9 +327,10 @@ def generate_charts(df_full):
         labels=labels, values=values, marker=dict(colors=colors),
         textinfo='label+value+percent',
         texttemplate='%{label}<br>%{value:,.0f}<br>(%{percent})',
-        textfont=dict(size=16, family=FONT_FAMILY),  # +1 size (was 15)
-        textposition='inside',  # Force labels inside
-        insidetextfont=dict(size=16, color='white')  # Ensure readable
+        textfont=dict(size=16, family=FONT_FAMILY),
+        textposition='inside',
+        insidetextfont=dict(size=16, color='white'),
+        pull=[0, 0.05] if sc > 0 else [0]  # Slightly pull SC slice for better label visibility
     )])
     
     fig_vol.update_layout(
@@ -348,8 +357,9 @@ def generate_charts(df_full):
         x=df_d['day_label'], y=df_d['volume_iv'], name='IV',
         marker=dict(color=COLORS['ocrevus_iv']),
         text=df_d['volume_iv'].astype(int),
-        textposition='inside', insidetextanchor='middle',
-        textfont=dict(color='white', size=10)  # Smaller text
+        textposition='inside', 
+        textfont=dict(color='white', size=10),  # size=10 for 30 bars
+        insidetextanchor='start'  # Bottom of bar
     ))
     
     if df_d['volume_sc'].sum() > 0:
@@ -357,17 +367,17 @@ def generate_charts(df_full):
             x=df_d['day_label'], y=df_d['volume_sc'], name='SC',
             marker=dict(color=COLORS['ocrevus_sc']),
             text=df_d['volume_sc'].astype(int),
-            textposition='inside', insidetextanchor='middle',
-            textfont=dict(size=10),  # Smaller text, not white so visible on yellow
-            textangle=0  # Not pivoted (horizontal)
+            textposition='outside',  # Above bar
+            textfont=dict(size=10),  # size=10 for 30 bars
+            textangle=0
         ))
     
     fig_d.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC',
                   font=dict(size=18), x=0.5, xanchor='center'),
-        yaxis=dict(visible=False),
-        xaxis=dict(tickangle=-45),  # Angle x-axis labels for readability
+        yaxis=dict(visible=False, rangemode='normal'),  # Allow auto-range for labels
+        xaxis=dict(tickangle=-45),
         showlegend=False
     )
     
@@ -383,22 +393,25 @@ def generate_charts(df_full):
     fig_m.add_trace(go.Bar(
         x=df_m['lbl'], y=df_m['volume_iv'], name='IV',
         marker=dict(color=COLORS['ocrevus_iv']),
-        text=[f'{int(v):,}'.replace(',', ' ') for v in df_m['volume_iv']],  # Space separator
-        textposition='outside'
+        text=[f'{int(v):,}'.replace(',', ' ') for v in df_m['volume_iv']],
+        textposition='inside',
+        textfont=dict(color='white', size=13),  # size=13 for 12 bars
+        insidetextanchor='start'  # Bottom of bar
     ))
     
     fig_m.add_trace(go.Bar(
         x=df_m['lbl'], y=df_m['volume_sc'], name='SC',
         marker=dict(color=COLORS['ocrevus_sc']),
-        text=[f'{int(v):,}'.replace(',', ' ') if v>0 else '' for v in df_m['volume_sc']],  # Space separator
-        textposition='outside'
+        text=[f'{int(v):,}'.replace(',', ' ') if v>0 else '' for v in df_m['volume_sc']],
+        textposition='outside',  # Above bar
+        textfont=dict(size=13)  # size=13 for 12 bars
     ))
     
     fig_m.update_layout(
         barmode='stack', template='plotly_white', height=400, width=900,
         title=dict(text='Evolution mensuelle des volumes d\'Ocrevus IV et SC',
-                  font=dict(size=18), x=0.5, xanchor='center'),  # Size 18, centered
-        yaxis=dict(visible=False, range=[0, max(df_m['volume_iv'] + df_m['volume_sc']) * 1.4]),
+                  font=dict(size=18), x=0.5, xanchor='center'),
+        yaxis=dict(visible=False, range=[0, max(df_m['volume_iv'] + df_m['volume_sc']) * 1.5]),  # Increased from 1.4 to 1.5 for SC labels
         showlegend=False
     )
     
