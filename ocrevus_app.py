@@ -814,6 +814,9 @@ if __name__ == "__main__":
         # Transform
         df = unpivot_data(df_raw)
         
+        # Calculate metrics
+        final_table = calculate_metrics(df)
+        
         # Charts (pass rated_centers for percentage calculation)
         vol_iv, vol_sc, total_centers = generate_charts(df, df_rated_centers)
         
