@@ -33,6 +33,12 @@ jobs:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           USE_AI: '0'
           TRACKER_URL: 'https://ocrevus-tracker.onrender.com'
-          # OPTIONS: 'test_1' (you only), 'test_2' (managers), 'test_3' (sectorized test), 'prod_sectorised' (live), 'prod' (national live)
+          # OPTIONS: 
+          #   'test_1' - Test with Roman only
+          #   'test_2' - Test with managers (4 people)
+          #   'test_3' - Test sectorized mode (one sector)
+          #   'prod_sectorised' - Production sectorized (all sectors)
+          #   'prod_national_view' - Production national view (managers)
+          #   'prod_csv' - Production with full mailing list from CSV (75+ people)
           ACTIVE_RECIPIENT_GROUP: 'test_1'
         run: python ocrevus_app.py

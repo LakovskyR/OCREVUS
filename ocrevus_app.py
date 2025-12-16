@@ -10,6 +10,7 @@ Ocrevus Automation Script v4.1
 import os
 import sys
 import io
+import re
 import time
 import smtplib
 import ssl
@@ -55,6 +56,9 @@ USE_AI = int(os.getenv('USE_AI', '0'))  # 0=disabled, 1=enabled
 # Tracker
 TRACKER_URL = os.getenv('TRACKER_URL', 'https://ocrevus-tracker.onrender.com')
 
+# CSV Mailing List
+CSV_MAIL_LIST_URL = 'https://raw.githubusercontent.com/LakovskyR/OCREVUS/main/mail%20list.csv'
+
 # Active Group
 ACTIVE_RECIPIENT_GROUP = os.getenv('ACTIVE_RECIPIENT_GROUP', 'test_1')
 
@@ -78,7 +82,8 @@ RECIPIENT_GROUPS = {
         "amaury.coumau@roche.com",
         "nele.kokel@roche.com",
         "diane-laure.trouvet@roche.com"
-    ]
+    ],
+    'prod_csv': []  # Will be loaded from CSV file
 }
 
 # Styling
@@ -99,6 +104,55 @@ def generate_tracking_id(recipient_email, sector, date_str):
     sector_clean = sector.replace('_', '').replace('-', '')[:15]
     date_clean = date_str.replace('/', '')
     return f"ocrevus_{date_clean}_{sector_clean}_{email_hash}"
+
+def load_emails_from_csv(csv_url):
+    """Load email addresses from CSV file (GitHub or local)"""
+    try:
+        import urllib.request
+        print(f"   Loading emails from CSV: {csv_url}")
+        
+        # Try to fetch from URL
+        try:
+            response = urllib.request.urlopen(csv_url)
+            csv_content = response.read().decode('utf-8')
+        except:
+            # If URL fails, try local file
+            csv_path = csv_url.split('/')[-1]
+            if os.path.exists(csv_path):
+                with open(csv_path, 'r', encoding='utf-8') as f:
+                    csv_content = f.read()
+            else:
+                print(f"   ⚠ Could not load CSV from URL or local file")
+                return []
+        
+        # Parse emails from CSV
+        emails = []
+        lines = csv_content.strip().split('\n')
+        
+        for line in lines[1:]:  # Skip header
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Extract email using regex
+            # Handles both "Name <email>" and "email" formats
+            email_match = re.search(r'<([^>]+)>', line)
+            if email_match:
+                email = email_match.group(1).strip()
+            else:
+                # Plain email without brackets
+                email = line.strip()
+            
+            # Validate email format
+            if '@' in email and '.' in email:
+                emails.append(email)
+        
+        print(f"   ✓ Loaded {len(emails)} emails from CSV")
+        return emails
+        
+    except Exception as e:
+        print(f"   ❌ Error loading CSV: {e}")
+        return []
 
 # =============================================================================
 # DATA EXTRACTION
@@ -238,8 +292,32 @@ def calculate_metrics(df):
     
     print(f"   Found {len(df_yesterday)} rows for yesterday ({yesterday_date})")
     
+    # Debug: Show sample of yesterday's data
+    if len(df_yesterday) > 0:
+        print(f"   Sample yesterday data:")
+        print(f"   {df_yesterday[['chainage_name', 'center_name', 'volume_iv', 'volume_sc']].head(10).to_string()}")
+        
+        # Check if COMPIEGNE exists in raw data
+        compiegne_raw = df_yesterday[df_yesterday['chainage_name'].str.contains('COMPIEGNE', case=False, na=False)]
+        if len(compiegne_raw) > 0:
+            print(f"   ✓ COMPIEGNE in raw data: {len(compiegne_raw)} row(s)")
+            print(f"   {compiegne_raw[['chainage_name', 'volume_iv', 'volume_sc']].to_string()}")
+        else:
+            print(f"   ⚠ COMPIEGNE NOT in yesterday's raw data")
+    
     df_table = df_yesterday.groupby(['chainage_cip', 'chainage_name']).agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
     df_table.columns = ['chainage_cip', 'chainage_name', 'Volume MTT Ocrevus IV de la veille', 'Volume MTT Ocrevus SC de la veille']
+    
+    print(f"   After groupby: {len(df_table)} unique chainages")
+    print(f"   Volume ranges - IV: {df_table['Volume MTT Ocrevus IV de la veille'].min():.1f} to {df_table['Volume MTT Ocrevus IV de la veille'].max():.1f}")
+    print(f"   Volume ranges - SC: {df_table['Volume MTT Ocrevus SC de la veille'].min():.1f} to {df_table['Volume MTT Ocrevus SC de la veille'].max():.1f}")
+    
+    # Check if COMPIEGNE exists
+    compiegne = df_table[df_table['chainage_name'].str.contains('COMPIEGNE', case=False, na=False)]
+    if len(compiegne) > 0:
+        print(f"   ✓ Found COMPIEGNE: IV={compiegne['Volume MTT Ocrevus IV de la veille'].iloc[0]:.1f}, SC={compiegne['Volume MTT Ocrevus SC de la veille'].iloc[0]:.1f}")
+    else:
+        print(f"   ⚠ COMPIEGNE not found in yesterday's data")
     
     # MTD
     current_month = today.replace(day=1)
@@ -696,8 +774,8 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
     if ps_content:
         ps_section = f'<div class="ps"><strong>P.S. AI</strong> {ps_content}</div>'
     
-    # Build ambition section - HARDCODED for now
-    ambition_section = '<div style="margin-top: 10px; font-size: 16px; font-style: italic; text-align: center; color: #555;">Ambition décembre : volumes Ocrevus IV : 2 157 / volumes Ocrevus SC : 373 / Split SC/IV : 15%</div>'
+    # Build ambition section - HARDCODED for now (size 12px to match chart 1 annotation style)
+    ambition_section = '<div style="margin-top: 10px; font-size: 12px; font-style: italic; text-align: center; color: #555;">Ambition décembre : volumes Ocrevus IV : 2 157 / volumes Ocrevus SC : 373 / Split SC/IV : 15%</div>'
     print(f"   ✓ Ambition section (hardcoded) will be rendered in HTML")
     
     # Build tracking pixel if tracking_id exists
@@ -744,7 +822,6 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         <div class="content">
             <div class="intro-text">
                 Chère équipe,<br><br>
-                👉 <strong>Votre quotidienne Ocrevus SC/IV</strong><br><br>
                 Veuillez trouver ci-après :<br>
                 -  les centres qui ont été livrés de l'Ocrevus la veille<br>
                 - un focus sur la performance Ocrevus SC<br>
@@ -917,7 +994,7 @@ if __name__ == "__main__":
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers, 
                                                sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
                     
-                    subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
+                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
@@ -940,7 +1017,7 @@ if __name__ == "__main__":
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers,
                                                sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
                     
-                    subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
+                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
@@ -963,7 +1040,7 @@ if __name__ == "__main__":
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers,
                                                sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
                     
-                    subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
+                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
@@ -996,17 +1073,27 @@ if __name__ == "__main__":
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers,
                                        sector_name=target_sector, sector_iv=sec_iv, sector_sc=sec_sc)
             
-            subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {target_sector}: IV={sec_iv}, SC={sec_sc}"
+            subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {target_sector}: IV={sec_iv}, SC={sec_sc}"
             
             tracking_id = generate_tracking_id(RECIPIENT_GROUPS['test_3'][0], target_sector, date_str)
             html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
             send_email(RECIPIENT_GROUPS['test_3'], subject, html)
         
         else:
-            # National mode (test_1, test_2, prod)
+            # National mode (test_1, test_2, prod, prod_csv)
             print(f"Running {ACTIVE_RECIPIENT_GROUP} (national view)...")
-            recipients = RECIPIENT_GROUPS.get(ACTIVE_RECIPIENT_GROUP, [SENDER_EMAIL])
-            subject = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}"
+            
+            # Load recipients from CSV if prod_csv mode
+            if ACTIVE_RECIPIENT_GROUP == 'prod_csv':
+                print("   Loading recipients from CSV...")
+                recipients = load_emails_from_csv(CSV_MAIL_LIST_URL)
+                if not recipients:
+                    print("   ⚠ No recipients loaded from CSV, falling back to sender email")
+                    recipients = [SENDER_EMAIL]
+            else:
+                recipients = RECIPIENT_GROUPS.get(ACTIVE_RECIPIENT_GROUP, [SENDER_EMAIL])
+            
+            subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}. National: IV={nat_iv}, SC={nat_sc}"
             
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers)
             
