@@ -592,7 +592,7 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
                         <th>Volume MTT<br>Ocrevus IV+SC<br>dans le mois</th>
                         <th>Nombre de<br>commandes<br>dans le mois<br>d'Ocrevus IV+SC</th>
                         <th>Date 1ère<br>commande<br>Ocrevus SC</th>
-                        <th>AVG IV+SC CM4</th>
+                        <th>Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois</th>
                     </tr>
                 </thead>
                 <tbody>{rows}</tbody>
