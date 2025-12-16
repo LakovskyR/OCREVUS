@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Ocrevus Automation Script v4.8
+Ocrevus Automation Script v4.7
 - Visual fixes: Aligned legends for Chart 1 & 2
 - Visual: Legends moved closer to charts
 - Fix: Robust number parsing (comma handling for French decimals)
-- Visual: Chart 2 legend size reduced (-1) and colored grey to match Chart 1
 """
 
 import os
@@ -447,7 +446,7 @@ def generate_charts(df_full, df_rated_centers=None):
         sc_labels = [str(int(v)) if v > 0 else '' for v in df_d['volume_sc']]
         fig_d.add_trace(go.Bar(x=df_d['day_label'], y=df_d['volume_sc'], name='SC', marker=dict(color=COLORS['ocrevus_sc']), text=sc_labels, textposition='outside', textfont=dict(size=10), textangle=0, cliponaxis=False))
     
-    fig_d.update_layout(barmode='stack', template='plotly_white', height=350, width=800, title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC', font=dict(size=CHART_TITLE_SIZE), x=0.5, xanchor='center'), yaxis=dict(visible=False, xaxis=dict(tickangle=-45), showlegend=False))
+    fig_d.update_layout(barmode='stack', template='plotly_white', height=350, width=800, title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC', font=dict(size=CHART_TITLE_SIZE), x=0.5, xanchor='center'), yaxis=dict(visible=False), xaxis=dict(tickangle=-45), showlegend=False)
     fig_d.write_image('/tmp/daily.png', scale=2)
     
     # Chart 4: Monthly
@@ -512,8 +511,8 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
     
     ps_section = f'<div class="ps"><strong>P.S. AI</strong> {ps_content}</div>' if ps_content else ""
     
-    # VISUAL FIX: Reduced spacing for Chart 2 legend (margin-top: 5px), size 13px, color grey (#555)
-    ambition_section = f'<div style="margin-top: 5px; font-size: 13px; font-style: italic; text-align: center; color: #555;">{ambition_text}</div>' if ambition_text else ""
+    # VISUAL FIX: Reduced spacing for Chart 2 legend (margin-top: 5px)
+    ambition_section = f'''<div style="margin-top: 5px; font-size: 13px; font-style: italic; text-align: center; color: #777;">{ambition_text}</div>''' if ambition_text else ""
     
     # Chart 1 legend (using same style as ambition text for consistency)
     chart1_legend = '<div style="margin-top: 5px; font-size: 13px; font-style: italic; text-align: center; color: #555;">Ambition : 70% des C1/C2 et 50% des C3 ont commandé Ocrevus SC<br>dans les 4 mois suivants le lancement soit 119 centres</div>'
@@ -544,8 +543,7 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         td {{ padding: 10px 8px; border: 1px solid #e0e0e0; color: #000; }}
         tr:nth-child(even) {{ background-color: #f9f9f9; }}
         tr:hover {{ background-color: #f0f0f0; }}
-        /* VISUAL FIX: Legend text styling for Chart 2 - reduced size (13px) and grey color (#555) */
-        .legend {{ display: flex; justify-content: center; margin: 20px 0; font-size: 13px; font-weight: bold; color: #555; }}
+        .legend {{ display: flex; justify-content: center; margin: 20px 0; font-size: 16px; font-weight: bold; }}
         .legend-item {{ display: flex; align-items: center; margin: 0 30px; }}
         .legend-box {{ width: 30px; height: 20px; border-radius: 4px; margin-right: 15px; }}
         .separator {{ height: 2px; background: #e0e0e0; margin: 30px 0; }}
@@ -703,7 +701,7 @@ if __name__ == "__main__":
         nat_sc = int(final_table['Volume MTT Ocrevus SC de la veille'].sum())
         
         print("--- Sending Emails ---")
-        -
+        
         if ACTIVE_RECIPIENT_GROUP == 'prod_sectorised':
             promo_sectors = final_table['secteur_promo'].dropna().unique()
             for sector in sorted(promo_sectors):
