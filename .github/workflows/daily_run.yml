@@ -40,5 +40,5 @@ jobs:
           #   'prod_sectorised' - Production sectorized (all sectors)
           #   'prod_national_view' - Production national view (managers)
           #   'prod_csv' - Production with full mailing list from CSV (75+ people)
-          ACTIVE_RECIPIENT_GROUP: 'test_1'
+          ACTIVE_RECIPIENT_GROUP: 'test_2'
         run: python ocrevus_app.py
