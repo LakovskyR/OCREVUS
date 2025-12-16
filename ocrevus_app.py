@@ -757,16 +757,22 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         # Highlight SC column if value > 0
         sc_bg = "background-color: #ffffe0;" if row['Volume MTT Ocrevus SC de la veille'] > 0 else ""
         
+        # Format volumes to show decimals (e.g., 2.5 instead of 2.0 or 0)
+        vol_sc_veille = f"{row['Volume MTT Ocrevus SC de la veille']:.1f}" if pd.notna(row['Volume MTT Ocrevus SC de la veille']) else "0.0"
+        vol_iv_veille = f"{row['Volume MTT Ocrevus IV de la veille']:.1f}" if pd.notna(row['Volume MTT Ocrevus IV de la veille']) else "0.0"
+        vol_mtd = f"{row['Volume MTT Ocrevus IV+SC dans le mois']:.1f}" if pd.notna(row['Volume MTT Ocrevus IV+SC dans le mois']) else "0.0"
+        avg_4m = f"{row['Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois']:.1f}" if pd.notna(row['Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois']) else "0.0"
+        
         rows += f"""
         <tr>
             <td style="font-size: 11px; color: #000;">{row['Centres']}</td>
             <td style="text-align: center; font-size: 11px; color: #000;">{row['Catégorie de centres']}</td>
-            <td style="text-align: center; font-size: 11px; color: #000; {sc_bg}">{row['Volume MTT Ocrevus SC de la veille']}</td>
-            <td style="text-align: center; font-size: 11px; color: #000;">{row['Volume MTT Ocrevus IV de la veille']}</td>
-            <td style="text-align: center; font-weight: bold; font-size: 11px; color: #000;">{row['Volume MTT Ocrevus IV+SC dans le mois']}</td>
+            <td style="text-align: center; font-size: 11px; color: #000; {sc_bg}">{vol_sc_veille}</td>
+            <td style="text-align: center; font-size: 11px; color: #000;">{vol_iv_veille}</td>
+            <td style="text-align: center; font-weight: bold; font-size: 11px; color: #000;">{vol_mtd}</td>
             <td style="text-align: center; font-size: 11px; color: #000;">{row["Nombre de commandes dans le mois d'Ocrevus IV+SC"]}</td>
             <td style="text-align: center; font-size: 11px; color: #000;">{row['Date 1ère commande Ocrevus SC']}</td>
-            <td style="text-align: center; font-size: 11px; color: #000;">{row['Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois']}</td>
+            <td style="text-align: center; font-size: 11px; color: #000;">{avg_4m}</td>
         </tr>"""
     
     # Build PS section only if ps_content exists
@@ -775,7 +781,7 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         ps_section = f'<div class="ps"><strong>P.S. AI</strong> {ps_content}</div>'
     
     # Build ambition section - HARDCODED for now (size 12px to match chart 1 annotation style)
-    ambition_section = '<div style="margin-top: 10px; font-size: 12px; font-style: italic; text-align: center; color: #555;">Ambition décembre : volumes Ocrevus IV : 2 157 / volumes Ocrevus SC : 373 / Split SC/IV : 15%</div>'
+    ambition_section = '<div style="margin-top: 5px; font-size: 12px; font-style: italic; text-align: center; color: #555;">Ambition décembre : volumes Ocrevus IV : 2 157 / volumes Ocrevus SC : 373 / Split SC/IV : 15%</div>'
     print(f"   ✓ Ambition section (hardcoded) will be rendered in HTML")
     
     # Build tracking pixel if tracking_id exists
@@ -879,8 +885,7 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
             <div class="signature">
                 Merci à tous pour l'engagement que vous avez autour d'Ocrevus SC ! Keep going 🚀<br><br>
                 Bien à vous,<br>
-                <strong>Nele et Diane-Laure</strong><br><br>
-                <em style="font-size: 12px; color: #666;">P.S. : A noter que l'ambition découle du forecast qui prend en compte un lancement de Ocrevus SC en septembre 2025. Un nouveau forecast avec une date de lancement en décembre viendra avec de nouveaux objectifs. Toutes les précisions seront apportées en réunion mensuelle.</em>
+                <strong>Nele et Diane-Laure</strong>
             </div>
             {ps_section}
             {tracking_pixel}
@@ -994,7 +999,7 @@ if __name__ == "__main__":
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers, 
                                                sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
                     
-                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
+                    subject = f"Votre quotidienne Ocrevus SC/IV - {date_str}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
@@ -1017,7 +1022,7 @@ if __name__ == "__main__":
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers,
                                                sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
                     
-                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
+                    subject = f"Votre quotidienne Ocrevus SC/IV - {date_str}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
@@ -1040,7 +1045,7 @@ if __name__ == "__main__":
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers,
                                                sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
                     
-                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {sector}: IV={sec_iv}, SC={sec_sc}"
+                    subject = f"Votre quotidienne Ocrevus SC/IV - {date_str}"
                     
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
@@ -1050,7 +1055,7 @@ if __name__ == "__main__":
             # Final: National view to managers
             print("Sending National View to Managers...")
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers)
-            subject_nat = f"OCREVUS {date_str}. National: IV={nat_iv}, SC={nat_sc}"
+            subject_nat = f"Votre quotidienne Ocrevus SC/IV - {date_str}"
             tracking_id = generate_tracking_id(RECIPIENT_GROUPS['prod_national_view'][0], 'NATIONAL', date_str)
             html_nat = build_html_v4(final_table, ps_content, tracking_id, ambition_text)
             send_email(RECIPIENT_GROUPS['prod_national_view'], subject_nat, html_nat)
@@ -1073,7 +1078,7 @@ if __name__ == "__main__":
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers,
                                        sector_name=target_sector, sector_iv=sec_iv, sector_sc=sec_sc)
             
-            subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}. National: IV={nat_iv}, SC={nat_sc}. Territory {target_sector}: IV={sec_iv}, SC={sec_sc}"
+            subject = f"Votre quotidienne Ocrevus SC/IV - {date_str}"
             
             tracking_id = generate_tracking_id(RECIPIENT_GROUPS['test_3'][0], target_sector, date_str)
             html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
@@ -1093,7 +1098,7 @@ if __name__ == "__main__":
             else:
                 recipients = RECIPIENT_GROUPS.get(ACTIVE_RECIPIENT_GROUP, [SENDER_EMAIL])
             
-            subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}. National: IV={nat_iv}, SC={nat_sc}"
+            subject = f"Votre quotidienne Ocrevus SC/IV - {date_str}"
             
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers)
             
