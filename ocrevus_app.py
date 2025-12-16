@@ -453,13 +453,13 @@ def generate_charts(df_full, df_rated_centers=None):
     
     # KPI Digit Outside to the LEFT
     fig_kpi.update_layout(
-        template='plotly_white', height=600, width=800,
+        template='plotly_white', height=500, width=700,
         font=dict(family=FONT_FAMILY, size=CHART_TEXT_MAIN),
         title=dict(text='% de centres qui ont initié Ocrevus SC par catégorie', 
                   font=dict(size=24, family=FONT_FAMILY), y=0.98, x=0.5, xanchor='center'),
         yaxis=dict(visible=False),
         xaxis=dict(title=None),
-        margin=dict(l=150, b=100, t=80)  # Reduced bottom margin - legend now in HTML
+        margin=dict(l=150, b=140, t=80)
     )
     
     # Total number - LEFT ALIGNED, outside chart
@@ -498,9 +498,9 @@ def generate_charts(df_full, df_rated_centers=None):
     
     fig_vol.update_layout(
         title=dict(text='Ventes Ocrevus SC / IV sur le mois en cours',
-                  x=0.5, y=0.98, xanchor='center', font=dict(size=24, family=FONT_FAMILY)),
-        template='plotly_white', height=600, width=800,  # Match Chart 1 size
-        margin=dict(l=50, r=50, t=80, b=100), showlegend=False  # Match bottom margin
+                  x=0.5, y=0.98, xanchor='center', font=dict(size=24, family=FONT_FAMILY)),  # Added y=0.98 to align with Chart 1
+        template='plotly_white', height=550, width=700,  # Even bigger
+        margin=dict(l=50, r=50, t=80, b=170), showlegend=False
     )
     
     fig_vol.write_image('/tmp/vol.png', scale=2)
@@ -798,14 +798,14 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
     # Build ambition section - HARDCODED for now (harmonized spacing with chart 1)
     # Build ambition section - HARDCODED for now (harmonized spacing with chart 1)
     if not ambition_text:
-        ambition_section = '<div style="margin-top: 5px; font-size: 12px; font-style: italic; text-align: center; color: #555;">Ambition décembre : volumes Ocrevus IV : 2 157 / volumes Ocrevus SC : 373 / Split SC/IV : 15%</div>'
+        ambition_section = '<div style="margin-top: 8px; font-size: 12px; font-style: italic; text-align: center; color: #555;">Ambition décembre : volumes Ocrevus IV : 2 157 / volumes Ocrevus SC : 373 / Split SC/IV : 15%</div>'
         print(f"   ✓ Ambition section (hardcoded) will be rendered in HTML")
     else:
-        ambition_section = f'<div style="margin-top: 5px; font-size: 12px; font-style: italic; text-align: center; color: #555;">{ambition_text}</div>'
+        ambition_section = f'<div style="margin-top: 8px; font-size: 12px; font-style: italic; text-align: center; color: #555;">{ambition_text}</div>'
     
-    # Build Chart 1 legend section (matching Chart 2 spacing, slightly bigger font)
+    # Build Chart 1 legend section (slightly bigger to align visually with Chart 2)
     if not chart1_legend:
-        chart1_legend = '<div style="margin-top: 5px; font-size: 13px; font-style: italic; text-align: center; color: #555;">Ambition : 70% des C1/C2 et 50% des C3 ont commandé Ocrevus SC<br>dans les 4 mois suivants le lancement soit 119 centres</div>'
+        chart1_legend = '<div style="margin-top: 8px; font-size: 13px; font-style: italic; text-align: center; color: #555;">Ambition : 70% des C1/C2 et 50% des C3 ont commandé Ocrevus SC<br>dans les 4 mois suivants le lancement soit 119 centres</div>'
     
     # Build tracking pixel if tracking_id exists
     tracking_pixel = ""
@@ -836,8 +836,8 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         .legend-box {{ width: 30px; height: 20px; border-radius: 4px; margin-right: 15px; }}
         .separator {{ height: 2px; background: #e0e0e0; margin: 30px 0; }}
         .vertical-separator {{ width: 2px; background: #e0e0e0; }}
-        .kpi-container {{ display: flex; justify-content: space-between; align-items: flex-start; margin: 20px 0; gap: 30px; }}
-        .kpi-card {{ flex: 1; display: flex; flex-direction: column; align-items: center; }}
+        .kpi-container {{ display: flex; justify-content: space-between; margin: 20px 0; gap: 20px; }}
+        .kpi-card {{ flex: 1; }}
         .chart {{ text-align: center; margin: 20px 0; }}
         .signature {{ margin-top: 30px; font-size: 14px; line-height: 1.8; color: #000; }}
         .ps {{ margin-top: 20px; padding: 15px; background-color: #f0f5ff; border-left: 4px solid #646db1; font-size: 13px; font-style: italic; color: #000; }}
