@@ -512,8 +512,8 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
     
     ps_section = f'<div class="ps"><strong>P.S. AI</strong> {ps_content}</div>' if ps_content else ""
     
-    # VISUAL FIX: Reduced spacing for Chart 2 legend (margin-top: 5px)
-    ambition_section = f'<div style="margin-top: 5px; font-size: 14px; font-style: italic; text-align: center; color: #000;">{ambition_text}</div>' if ambition_text else ""
+    # VISUAL FIX: Reduced spacing for Chart 2 legend (margin-top: 5px), size 13px, color grey (#555)
+    ambition_section = f'<div style="margin-top: 5px; font-size: 13px; font-style: italic; text-align: center; color: #555;">{ambition_text}</div>' if ambition_text else ""
     
     # Chart 1 legend (using same style as ambition text for consistency)
     chart1_legend = '<div style="margin-top: 5px; font-size: 13px; font-style: italic; text-align: center; color: #555;">Ambition : 70% des C1/C2 et 50% des C3 ont commandé Ocrevus SC<br>dans les 4 mois suivants le lancement soit 119 centres</div>'
