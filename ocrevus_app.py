@@ -544,8 +544,8 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         td {{ padding: 10px 8px; border: 1px solid #e0e0e0; color: #000; }}
         tr:nth-child(even) {{ background-color: #f9f9f9; }}
         tr:hover {{ background-color: #f0f0f0; }}
-        /* VISUAL FIX: Legend text styling for Chart 2 - reduced size (-1) and grey color */
-        .legend {{ display: flex; justify-content: center; margin: 20px 0; font-size: 15px; font-weight: bold; color: #555; }}
+        /* VISUAL FIX: Legend text styling for Chart 2 - reduced size (13px) and grey color (#555) */
+        .legend {{ display: flex; justify-content: center; margin: 20px 0; font-size: 13px; font-weight: bold; color: #555; }}
         .legend-item {{ display: flex; align-items: center; margin: 0 30px; }}
         .legend-box {{ width: 30px; height: 20px; border-radius: 4px; margin-right: 15px; }}
         .separator {{ height: 2px; background: #e0e0e0; margin: 30px 0; }}
@@ -703,7 +703,7 @@ if __name__ == "__main__":
         nat_sc = int(final_table['Volume MTT Ocrevus SC de la veille'].sum())
         
         print("--- Sending Emails ---")
-        
+        -
         if ACTIVE_RECIPIENT_GROUP == 'prod_sectorised':
             promo_sectors = final_table['secteur_promo'].dropna().unique()
             for sector in sorted(promo_sectors):
