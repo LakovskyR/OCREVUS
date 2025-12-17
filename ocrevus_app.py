@@ -282,7 +282,7 @@ def calculate_metrics(df):
         df_yesterday = df[df['date_day'].dt.date == yesterday_date].copy()
     
     df_table = df_yesterday.groupby(['chainage_cip', 'chainage_name']).agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
-    df_table.columns = ['chainage_cip', 'chainage_name', 'Volume MTT Ocrevus IV de la veille', 'Volume MTT Ocrevus SC de la veille']
+    df_table.columns = ['chainage_cip', 'chainage_name', 'Volume MTT Ocrevus IV d'hier', 'Volume MTT Ocrevus SC d'hier']
     
     # MTD
     current_month = today.replace(day=1)
@@ -317,7 +317,7 @@ def calculate_metrics(df):
     # Format columns
     final['Volume MTT Ocrevus IV+SC dans le mois'] = final['volume_iv_mtd'].fillna(0) + final['volume_sc_mtd'].fillna(0)
     final['Nombre de commandes dans le mois d\'Ocrevus IV+SC'] = final['nb_orders_mtd'].fillna(0).astype(int)
-    final['Date 1ère commande Ocrevus SC'] = final['date_first_sc'].dt.strftime('%d/%m/%Y').fillna('')
+    final['Date 1ère facturation Ocrevus SC'] = final['date_first_sc'].dt.strftime('%d/%m/%Y').fillna('')
     final['Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois'] = final['avg_4m'].fillna(0).round(2)
     final['Catégorie de centres'] = final['category'].fillna('N/A')
     
@@ -327,8 +327,8 @@ def calculate_metrics(df):
         'Centres', 'chainage_cip', 'Catégorie de centres',
         'secteur_promo', 'secteur_medical', 'secteur_ma',
         'email_promo', 'email_medical', 'email_ma',
-        'Volume MTT Ocrevus SC de la veille',
-        'Volume MTT Ocrevus IV de la veille',
+        'Volume MTT Ocrevus SC d'hier',
+        'Volume MTT Ocrevus IV d'hier',
         'Volume MTT Ocrevus IV+SC dans le mois',
         'Nombre de commandes dans le mois d\'Ocrevus IV+SC',
         'Date 1ère commande Ocrevus SC',
@@ -495,13 +495,20 @@ Instruction: Rédige un court paragraphe (2-3 phrases) en français sur un ton t
     except: return "Le rythme global est excellent. Nous attendons avec confiance les premières commandes SC pour compléter cette belle dynamique."
 
 def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=None):
+    # Check if table is empty (no volumes yesterday)
+    is_empty = (
+        table_df.empty or 
+        (table_df['Volume MTT Ocrevus SC d\'hier'].sum() == 0 and 
+         table_df['Volume MTT Ocrevus IV d\'hier'].sum() == 0)
+    )
+    
     rating_order = {'C1': 1, 'C2': 2, 'C3': 3, 'Autres': 4, 'DROM COM': 5, 'OoT': 6}
     table_df['rating_sort'] = table_df['Catégorie de centres'].map(rating_order).fillna(99)
     df_sorted = table_df.sort_values(by=['rating_sort', 'Volume MTT Ocrevus IV+SC dans le mois'], ascending=[True, False])
     
     rows = ""
     for _, row in df_sorted.iterrows():
-        sc_bg = "background-color: #ffffe0;" if row['Volume MTT Ocrevus SC de la veille'] > 0 else ""
+        sc_bg = "background-color: #ffffe0;" if row['Volume MTT Ocrevus SC d\'hier'] > 0 else ""
         
         # VISUAL FIX: Format table numbers to show decimals if they exist, or clean integers
         def fmt(val):
@@ -512,15 +519,35 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         rows += f"""<tr>
             <td style="font-size: 11px; color: #000;">{row['Centres']}</td>
             <td style="text-align: center; font-size: 11px; color: #000;">{row['Catégorie de centres']}</td>
-            <td style="text-align: center; font-size: 11px; color: #000; {sc_bg}">{fmt(row['Volume MTT Ocrevus SC de la veille'])}</td>
-            <td style="text-align: center; font-size: 11px; color: #000;">{fmt(row['Volume MTT Ocrevus IV de la veille'])}</td>
+            <td style="text-align: center; font-size: 11px; color: #000; {sc_bg}">{fmt(row['Volume MTT Ocrevus SC d\'hier'])}</td>
+            <td style="text-align: center; font-size: 11px; color: #000;">{fmt(row['Volume MTT Ocrevus IV d\'hier'])}</td>
             <td style="text-align: center; font-weight: bold; font-size: 11px; color: #000;">{fmt(row['Volume MTT Ocrevus IV+SC dans le mois'])}</td>
-            <td style="text-align: center; font-size: 11px; color: #000;">{row["Nombre de commandes dans le mois d'Ocrevus IV+SC"]}</td>
-            <td style="text-align: center; font-size: 11px; color: #000;">{row['Date 1ère commande Ocrevus SC']}</td>
+            <td style="text-align: center; font-size: 11px; color: #000;">{row["Nombre de commandes dans le mois d\'Ocrevus IV+SC"]}</td>
+            <td style="text-align: center; font-size: 11px; color: #000;">{row['Date 1ère facturation Ocrevus SC']}</td>
             <td style="text-align: center; font-size: 11px; color: #000;">{fmt(row['Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois'])}</td>
         </tr>"""
     
     ps_section = f'<div class="ps"><strong>P.S. AI</strong> {ps_content}</div>' if ps_content else ""
+    
+    # Build table section - show empty message or table
+    if is_empty:
+        table_section = '<div style="text-align: center; padding: 40px 20px; font-size: 16px; font-weight: bold; color: #000;">Hier, nous n\'avons pas enregistré de volumes d\'Ocrevus facturés</div>'
+    else:
+        table_section = f"""<table>
+                <thead>
+                    <tr>
+                        <th>Centres</th>
+                        <th>Catégorie<br>de centres</th>
+                        <th class="sc-header">Volume MTT<br>Ocrevus SC<br>d'hier</th>
+                        <th class="iv-header">Volume MTT<br>Ocrevus IV<br>d'hier</th>
+                        <th>Volume MTT<br>Ocrevus IV+SC<br>dans le mois</th>
+                        <th>Nombre de<br>commandes<br>dans le mois<br>d'Ocrevus IV+SC</th>
+                        <th>Date 1ère<br>commande<br>Ocrevus SC</th>
+                        <th>Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois</th>
+                    </tr>
+                </thead>
+                <tbody>{rows}</tbody>
+            </table>"""
     
     # VISUAL FIX: Reduced spacing for Chart 2 legend (margin-top: 5px)
     ambition_section = f'''<div style="margin-top: 5px; font-size: 13px; font-style: italic; text-align: center; color: #777;">{ambition_text}</div>''' if ambition_text else ""
@@ -571,34 +598,20 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
 </head>
 <body>
     <div class="container">
-        <img src="https://github.com/LakovskyR/IMB-certification/blob/main/header.png?raw=true" alt="Header" style="width: 100%; display: block;">
+        <img src="https://github.com/LakovskyR/IMB-certification/blob/main/header_50.png?raw=true" alt="Header" style="width: 100%; display: block;">
         <div class="content">
             <div class="intro-text">
                 Chère équipe,<br><br>
                 Veuillez trouver ci-après :<br>
-                -  les centres qui ont été livrés de l'Ocrevus la veille<br>
+                -  les centres qui ont été facturés de l'Ocrevus la veille<br>
                 - un focus sur la performance Ocrevus SC<br>
                 - un état d'avancement  de où est ce qu'on en est dans le mois<br><br>
                 N'hésitez pas à compléter ces informations avec celles présentes dans le <a href="https://eu-west-1a.online.tableau.com/#/site/tabemeacloud/views/DashboardNeurologie/Ventesinternes?:iid=1">dashboard neuro</a> et <a href="https://customer.roche.com/customer-focus">CES</a> !<br><br>
                 🌟 <strong>Les centres qui ont reçu de l'Ocrevus la veille :</strong>
             </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Centres</th>
-                        <th>Catégorie<br>de centres</th>
-                        <th class="sc-header">Volume MTT<br>Ocrevus SC<br>de la veille</th>
-                        <th class="iv-header">Volume MTT<br>Ocrevus IV<br>de la veille</th>
-                        <th>Volume MTT<br>Ocrevus IV+SC<br>dans le mois</th>
-                        <th>Nombre de<br>commandes<br>dans le mois<br>d'Ocrevus IV+SC</th>
-                        <th>Date 1ère<br>commande<br>Ocrevus SC</th>
-                        <th>Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois</th>
-                    </tr>
-                </thead>
-                <tbody>{rows}</tbody>
-            </table>
+            {table_section}
             
-            <div class="section-title">🎯 Où ce qu'on en est au niveau national, à date ?</div>
+            <div class="section-title">🎯 Où en est-on au niveau national, à date ?</div>
             
             <div class="legend">
                 <div class="legend-item">
@@ -629,7 +642,7 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
             
             <div class="separator"></div>
             
-            <div class="section-title">🚀 Et où ce qu'on en est sur les 12 derniers mois ?</div>
+            <div class="section-title">🚀 Et où en est-on sur les 12 derniers mois ?</div>
             <div class="chart"><img src="cid:monthly_chart" style="width: 100%; max-width: 900px; border-radius: 4px;"></div>
             
             <div class="signature">
@@ -708,8 +721,8 @@ if __name__ == "__main__":
         print(f"✓ Ambition text: {ambition_text}")
         
         # National metrics
-        nat_iv = int(final_table['Volume MTT Ocrevus IV de la veille'].sum())
-        nat_sc = int(final_table['Volume MTT Ocrevus SC de la veille'].sum())
+        nat_iv = int(final_table['Volume MTT Ocrevus IV d\'hier'].sum())
+        nat_sc = int(final_table['Volume MTT Ocrevus SC d\'hier'].sum())
         
         print("--- Sending Emails ---")
         
@@ -721,8 +734,8 @@ if __name__ == "__main__":
                 for mail in df_sec['email_promo'].dropna().unique():
                     if '@' in str(mail): recipients.append(str(mail).strip())
                 if recipients:
-                    sec_iv = int(df_sec['Volume MTT Ocrevus IV de la veille'].sum())
-                    sec_sc = int(df_sec['Volume MTT Ocrevus SC de la veille'].sum())
+                    sec_iv = int(df_sec['Volume MTT Ocrevus IV d\'hier'].sum())
+                    sec_sc = int(df_sec['Volume MTT Ocrevus SC d\'hier'].sum())
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers, sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
                     subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
@@ -743,11 +756,11 @@ if __name__ == "__main__":
             send_email(RECIPIENT_GROUPS['prod_national_view'], subject_nat, html_nat)
         
         elif ACTIVE_RECIPIENT_GROUP == 'test_3':
-            active_sectors = final_table[(final_table['Volume MTT Ocrevus IV de la veille'] > 0) | (final_table['Volume MTT Ocrevus SC de la veille'] > 0)]['secteur_promo'].unique()
+            active_sectors = final_table[(final_table['Volume MTT Ocrevus IV d\'hier'] > 0) | (final_table['Volume MTT Ocrevus SC d\'hier'] > 0)]['secteur_promo'].unique()
             target_sector = active_sectors[0] if len(active_sectors) > 0 else final_table['secteur_promo'].unique()[0]
             df_sec = final_table[final_table['secteur_promo'] == target_sector].copy()
-            sec_iv = int(df_sec['Volume MTT Ocrevus IV de la veille'].sum())
-            sec_sc = int(df_sec['Volume MTT Ocrevus SC de la veille'].sum())
+            sec_iv = int(df_sec['Volume MTT Ocrevus IV d\'hier'].sum())
+            sec_sc = int(df_sec['Volume MTT Ocrevus SC d\'hier'].sum())
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers, sector_name=target_sector, sector_iv=sec_iv, sector_sc=sec_sc)
             subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
             tracking_id = generate_tracking_id(RECIPIENT_GROUPS['test_3'][0], target_sector, date_str)
