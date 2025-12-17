@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Ocrevus Automation Script v4.7
+Ocrevus Automation Script v4.8
 - Visual fixes: Aligned legends for Chart 1 & 2
 - Visual: Legends moved closer to charts
 - Fix: Robust number parsing (comma handling for French decimals)
+- Content: Updated email text (Option 1) and fixed grammar
+- Visual: Increased font size for 'No volumes' message
 """
 
 import os
@@ -457,7 +459,7 @@ def generate_charts(df_full, df_rated_centers=None):
         sc_labels = [str(int(v)) if v > 0 else '' for v in df_d['volume_sc']]
         fig_d.add_trace(go.Bar(x=df_d['day_label'], y=df_d['volume_sc'], name='SC', marker=dict(color=COLORS['ocrevus_sc']), text=sc_labels, textposition='outside', textfont=dict(size=10), textangle=0, cliponaxis=False))
     
-    fig_d.update_layout(barmode='stack', template='plotly_white', height=350, width=800, title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC', font=dict(size=CHART_TITLE_SIZE), x=0.5, xanchor='center'), yaxis=dict(visible=False), xaxis=dict(tickangle=-45), showlegend=False)
+    fig_d.update_layout(barmode='stack', template='plotly_white', height=350, width=800, title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC', font=dict(size=CHART_TITLE_SIZE), x=0.5, xanchor='center'), yaxis=dict(visible=False, xaxis=dict(tickangle=-45), showlegend=False))
     fig_d.write_image('/tmp/daily.png', scale=2)
     
     # Chart 4: Monthly
@@ -534,7 +536,8 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
     ps_section = f'<div class="ps"><strong>P.S. AI</strong> {ps_content}</div>' if ps_content else ""
     
     if is_empty:
-        table_section = '<div style="text-align: center; padding: 40px 20px; font-size: 16px; font-weight: bold; color: #000;">Hier, nous n\'avons pas enregistré de volumes d\'Ocrevus facturés</div>'
+        # VISUAL FIX: Increased font-size to 22px
+        table_section = '<div style="text-align: center; padding: 40px 20px; font-size: 22px; font-weight: bold; color: #000;">Hier, nous n\'avons pas enregistré de volumes d\'Ocrevus facturés</div>'
     else:
         table_section = f"""<table>
                 <thead>
@@ -605,16 +608,16 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         <div class="content">
             <div class="intro-text">
                 Chère équipe,<br><br>
-                Veuillez trouver ci-après :<br>
-                -  les centres qui ont été livrés de l'Ocrevus la veille<br>
-                - un focus sur la performance Ocrevus SC<br>
-                - un état d'avancement  de où est ce qu'on en est dans le mois<br><br>
-                N'hésitez pas à compléter ces informations avec celles présentes dans le <a href="https://eu-west-1a.online.tableau.com/#/site/tabemeacloud/views/DashboardNeurologie/Ventesinternes?:iid=1">dashboard neuro</a> et <a href="https://customer.roche.com/customer-focus">CES</a> !<br><br>
-                🌟 <strong>Les centres qui ont reçu de l'Ocrevus la veille :</strong>
+                Veuillez trouver ci-dessous les points clés du jour :<br>
+                - Les centres livrés en Ocrevus la veille ;<br>
+                - Un focus sur la performance d'Ocrevus SC ;<br>
+                - Un point de situation sur le mois en cours.<br><br>
+                N'hésitez pas à compléter ces informations avec celles du <a href="https://eu-west-1a.online.tableau.com/#/site/tabemeacloud/views/DashboardNeurologie/Ventesinternes?:iid=1">dashboard neuro</a> et <a href="https://customer.roche.com/customer-focus">CES</a> !<br><br>
+                🌟 <strong>Les centres livrés en Ocrevus la veille :</strong>
             </div>
             {table_section}
             
-            <div class="section-title">🎯 Où ce qu'on en est au niveau national, à date ?</div>
+            <div class="section-title">🎯 Où en est-on au niveau national à date ?</div>
             
             <div class="legend">
                 <div class="legend-item">
@@ -645,11 +648,11 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
             
             <div class="separator"></div>
             
-            <div class="section-title">🚀 Et où ce qu'on en est sur les 12 derniers mois ?</div>
+            <div class="section-title">🚀 Où en est-on sur les 12 derniers mois ?</div>
             <div class="chart"><img src="cid:monthly_chart" style="width: 100%; max-width: 900px; border-radius: 4px;"></div>
             
             <div class="signature">
-                Merci à tous pour l'engagement que vous avez autour d'Ocrevus SC ! Keep going 🚀<br><br>
+                Merci à tous pour votre engagement autour d'Ocrevus SC ! Keep going 🚀<br><br>
                 Bien à vous,<br>
                 <strong>Nele et Diane-Laure</strong>
             </div>
