@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Ocrevus Automation Script v4.8
+Ocrevus Automation Script v4.9
+- Fix: Corrected Plotly layout syntax error in fig_d (Chart 3)
 - Visual fixes: Aligned legends for Chart 1 & 2
 - Visual: Legends moved closer to charts
 - Fix: Robust number parsing (comma handling for French decimals)
@@ -459,7 +460,18 @@ def generate_charts(df_full, df_rated_centers=None):
         sc_labels = [str(int(v)) if v > 0 else '' for v in df_d['volume_sc']]
         fig_d.add_trace(go.Bar(x=df_d['day_label'], y=df_d['volume_sc'], name='SC', marker=dict(color=COLORS['ocrevus_sc']), text=sc_labels, textposition='outside', textfont=dict(size=10), textangle=0, cliponaxis=False))
     
-    fig_d.update_layout(barmode='stack', template='plotly_white', height=350, width=800, title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC', font=dict(size=CHART_TITLE_SIZE), x=0.5, xanchor='center'), yaxis=dict(visible=False, xaxis=dict(tickangle=-45), showlegend=False))
+    # FIX: Corrected layout syntax (xaxis and showlegend were inside yaxis)
+    fig_d.update_layout(
+        barmode='stack', 
+        template='plotly_white', 
+        height=350, 
+        width=800, 
+        title=dict(text='Evolution quotidienne des volumes d\'Ocrevus IV et SC', font=dict(size=CHART_TITLE_SIZE), x=0.5, xanchor='center'), 
+        yaxis=dict(visible=False), 
+        xaxis=dict(tickangle=-45), 
+        showlegend=False
+    )
+    
     fig_d.write_image('/tmp/daily.png', scale=2)
     
     # Chart 4: Monthly
