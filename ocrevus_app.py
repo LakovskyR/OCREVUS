@@ -282,7 +282,7 @@ def calculate_metrics(df):
         df_yesterday = df[df['date_day'].dt.date == yesterday_date].copy()
     
     df_table = df_yesterday.groupby(['chainage_cip', 'chainage_name']).agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
-    df_table.columns = ['chainage_cip', 'chainage_name', 'Volume MTT Ocrevus IV d'hier', 'Volume MTT Ocrevus SC d'hier']
+    df_table.columns = ['chainage_cip', 'chainage_name', 'Volume MTT Ocrevus IV d\'hier', 'Volume MTT Ocrevus SC d\'hier']
     
     # MTD
     current_month = today.replace(day=1)
@@ -327,8 +327,8 @@ def calculate_metrics(df):
         'Centres', 'chainage_cip', 'Catégorie de centres',
         'secteur_promo', 'secteur_medical', 'secteur_ma',
         'email_promo', 'email_medical', 'email_ma',
-        'Volume MTT Ocrevus SC d'hier',
-        'Volume MTT Ocrevus IV d'hier',
+        'Volume MTT Ocrevus SC d\'hier',
+        'Volume MTT Ocrevus IV d\'hier',
         'Volume MTT Ocrevus IV+SC dans le mois',
         'Nombre de commandes dans le mois d\'Ocrevus IV+SC',
         'Date 1ère commande Ocrevus SC',
