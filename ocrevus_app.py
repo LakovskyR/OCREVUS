@@ -806,7 +806,15 @@ if __name__ == "__main__":
             send_email(RECIPIENT_GROUPS['test_3'], subject, html)
             
         else:
-            recipients = RECIPIENT_GROUPS.get(ACTIVE_RECIPIENT_GROUP, [SENDER_EMAIL])
+            if ACTIVE_RECIPIENT_GROUP == 'prod_csv':
+                 recipients = load_emails_from_csv(CSV_MAIL_LIST_URL)
+            else:
+                 recipients = RECIPIENT_GROUPS.get(ACTIVE_RECIPIENT_GROUP, [SENDER_EMAIL])
+            
+            if not recipients:
+                print(f"❌ Error: No recipients found for group {ACTIVE_RECIPIENT_GROUP}")
+                sys.exit(1)
+            
             subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers)
             tracking_id = generate_tracking_id(recipients[0], 'NATIONAL', date_str)
