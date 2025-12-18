@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Ocrevus Automation Script v4.9
+Ocrevus Automation Script v4.10
+- Logic: IV Volumes divided by 2 (1 Patient = 2 Vials) for consistency
 - Fix: Corrected Plotly layout syntax error in fig_d (Chart 3)
 - Visual fixes: Aligned legends for Chart 1 & 2
 - Visual: Legends moved closer to charts
@@ -90,7 +91,7 @@ RECIPIENT_GROUPS = {
 
 # Styling
 COLORS = {'ocrevus_sc': '#ffc72a', 'ocrevus_iv': '#646db1', 'background': '#f5f5f3'}
-FONT_FAMILY = 'Roche Sans, Arial, sans-serif'
+FONT_FAMILY = 'Arial'
 CHART_TITLE_SIZE = 19
 CHART_TEXT_MAIN = 14
 CHART_ANNOTATION = 16
@@ -266,32 +267,32 @@ def unpivot_data(df_raw):
     df['volume_iv'] = pd.to_numeric(df['volume_iv'], errors='coerce').fillna(0)
     df['volume_sc'] = pd.to_numeric(df['volume_sc'], errors='coerce').fillna(0)
     
+    # --- CONSISTENCY FIX: Divide IV by 2 to convert Vials to Patients/Treatments ---
+    df['volume_iv'] = df['volume_iv'] / 2.0
+    
     return df
 
 def calculate_metrics(df):
     print("--- Calculating Metrics ---")
     
     latest_date_in_data = df['date_day'].max().date()
-    system_today = datetime.now().date()
+    today = datetime.now().date()
     
-    # If latest date >= today (system), ignore today and use previous date
-    if latest_date_in_data >= system_today:
-        query_date = system_today - timedelta(days=1)
-    else:
-        query_date = latest_date_in_data
+    if latest_date_in_data > today:
+        today = latest_date_in_data
     
-    # Handle Monday - aggregate Friday + Saturday + Sunday
-    if query_date.weekday() == 0:
-        friday = query_date - timedelta(days=3)
-        df_yesterday = df[(df['date_day'].dt.date >= friday) & (df['date_day'].dt.date < query_date)].copy()
+    yesterday_date = today - timedelta(days=3 if today.weekday() == 0 else 1)
+    
+    if today.weekday() == 0:
+        df_yesterday = df[(df['date_day'].dt.date >= yesterday_date) & (df['date_day'].dt.date < today)].copy()
     else:
-        df_yesterday = df[df['date_day'].dt.date == query_date].copy()
+        df_yesterday = df[df['date_day'].dt.date == yesterday_date].copy()
     
     df_table = df_yesterday.groupby(['chainage_cip', 'chainage_name']).agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
     df_table.columns = ['chainage_cip', 'chainage_name', "Volume MTT Ocrevus IV d'hier", "Volume MTT Ocrevus SC d'hier"]
     
     # MTD
-    current_month = query_date.replace(day=1)
+    current_month = today.replace(day=1)
     df_mtd = df[df['date_day'].dt.date >= current_month].copy()
     df_mtd_agg = df_mtd.groupby('chainage_cip').agg({'volume_iv': 'sum', 'volume_sc': 'sum', 'center_cip': 'count'}).reset_index()
     df_mtd_agg.columns = ['chainage_cip', 'volume_iv_mtd', 'volume_sc_mtd', 'nb_orders_mtd']
@@ -586,17 +587,11 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
     <style>
         @font-face {{
             font-family: 'Roche Sans';
-            src: url('https://github.com/LakovskyR/OCREVUS/blob/main/RocheSans-Regular.ttf?raw=true') format('truetype');
-            font-style: normal;
-            font-weight: normal;
-        }}
-        @font-face {{
-            font-family: 'Roche Sans';
             src: url('https://github.com/LakovskyR/OCREVUS/blob/main/RocheSans-Italic.ttf?raw=true') format('truetype');
             font-style: italic;
             font-weight: normal;
         }}
-        body {{ font-family: 'Roche Sans', 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f3; }}
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f3; }}
         .container {{ max-width: 900px; margin: 0 auto; background-color: white; }}
         .content {{ padding: 20px 40px; }}
         .intro-text {{ font-size: 14px; line-height: 1.8; margin-bottom: 20px; color: #000; }}
