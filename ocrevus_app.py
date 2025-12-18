@@ -59,7 +59,7 @@ USE_AI = int(os.getenv('USE_AI', '0'))  # 0=disabled, 1=enabled
 TRACKER_URL = os.getenv('TRACKER_URL', 'https://ocrevus-tracker.onrender.com')
 
 # CSV Mailing List
-CSV_MAIL_LIST_URL = 'https://raw.githubusercontent.com/LakovskyR/OCREVUS/main/mail%20list.csv'
+CSV_MAIL_LIST_URL = 'https://raw.githubusercontent.com/LakovskyR/OCREVUS/main/mail_list.csv'
 
 # Active Group
 ACTIVE_RECIPIENT_GROUP = os.getenv('ACTIVE_RECIPIENT_GROUP', 'test_1')
