@@ -1,0 +1,41 @@
+name: Production Report (13:45)
+
+on:
+  schedule:
+    # 13:45 Paris (CET) = 12:45 UTC
+    # Monday-Friday only
+    - cron: '45 12 * * 1-5'
+  
+  workflow_dispatch:
+
+jobs:
+  production-send:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run production report (prod_csv)
+        env:
+          TABLEAU_TOKEN_NAME: ${{ secrets.TABLEAU_TOKEN_NAME }}
+          TABLEAU_TOKEN_SECRET: ${{ secrets.TABLEAU_TOKEN_SECRET }}
+          TABLEAU_SITE_ID: ${{ secrets.TABLEAU_SITE_ID }}
+          TABLEAU_SERVER_URL: ${{ secrets.TABLEAU_SERVER_URL }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          USE_AI: '0'
+          TRACKER_URL: 'https://ocrevus-tracker.onrender.com'
+          ACTIVE_RECIPIENT_GROUP: 'prod_csv'
+        run: |
+          echo "📧 Sending production to prod_csv (75+ people)"
+          python ocrevus_app.py

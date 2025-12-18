@@ -1,0 +1,49 @@
+name: Manual Report (On-Demand)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Recipient mode'
+        required: true
+        default: 'test_1'
+        type: choice
+        options:
+          - test_1
+          - test_2
+          - test_3
+          - prod_sectorised
+          - prod_national_view
+          - prod_csv
+
+jobs:
+  manual-send:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run report
+        env:
+          TABLEAU_TOKEN_NAME: ${{ secrets.TABLEAU_TOKEN_NAME }}
+          TABLEAU_TOKEN_SECRET: ${{ secrets.TABLEAU_TOKEN_SECRET }}
+          TABLEAU_SITE_ID: ${{ secrets.TABLEAU_SITE_ID }}
+          TABLEAU_SERVER_URL: ${{ secrets.TABLEAU_SERVER_URL }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          USE_AI: '0'
+          TRACKER_URL: 'https://ocrevus-tracker.onrender.com'
+          ACTIVE_RECIPIENT_GROUP: ${{ github.event.inputs.mode }}
+        run: |
+          echo "📧 Running manual send with mode: ${{ github.event.inputs.mode }}"
+          python ocrevus_app.py
