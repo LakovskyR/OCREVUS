@@ -450,8 +450,8 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
 
     fig_vol.write_image('/tmp/vol.png', scale=2)
     
-    # Chart 3: Daily
-    last_30_days = [(query_date - timedelta(days=i)) for i in range(30, 0, -1)]
+    # Chart 3: Daily (last 30 days including query_date)
+    last_30_days = [(query_date - timedelta(days=i)) for i in range(29, -1, -1)]
     
     df_d = df_full[df_full['date_day'].dt.date.isin(last_30_days)].groupby('date_day').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().sort_values('date_day')
     df_d['day_label'] = df_d['date_day'].dt.strftime('%d/%m')
