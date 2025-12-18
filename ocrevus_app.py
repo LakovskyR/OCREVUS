@@ -280,11 +280,12 @@ def calculate_metrics(df):
     else:
         query_date = latest_date_in_data
     
-    # Handle Monday - get Friday's data
+    # Handle Monday - aggregate Friday + Saturday + Sunday
     if query_date.weekday() == 0:
-        query_date = query_date - timedelta(days=3)
-    
-    df_yesterday = df[df['date_day'].dt.date == query_date].copy()
+        friday = query_date - timedelta(days=3)
+        df_yesterday = df[(df['date_day'].dt.date >= friday) & (df['date_day'].dt.date < query_date)].copy()
+    else:
+        df_yesterday = df[df['date_day'].dt.date == query_date].copy()
     
     df_table = df_yesterday.groupby(['chainage_cip', 'chainage_name']).agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
     df_table.columns = ['chainage_cip', 'chainage_name', "Volume MTT Ocrevus IV d'hier", "Volume MTT Ocrevus SC d'hier"]
