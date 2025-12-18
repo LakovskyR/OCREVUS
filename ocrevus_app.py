@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Ocrevus Automation Script v4.10
-- Logic: IV Volumes divided by 2 (1 Patient = 2 Vials) for consistency
+Ocrevus Automation Script v4.9
 - Fix: Corrected Plotly layout syntax error in fig_d (Chart 3)
 - Visual fixes: Aligned legends for Chart 1 & 2
 - Visual: Legends moved closer to charts
@@ -91,7 +90,7 @@ RECIPIENT_GROUPS = {
 
 # Styling
 COLORS = {'ocrevus_sc': '#ffc72a', 'ocrevus_iv': '#646db1', 'background': '#f5f5f3'}
-FONT_FAMILY = 'Arial'
+FONT_FAMILY = 'Roche Sans, Arial, sans-serif'
 CHART_TITLE_SIZE = 19
 CHART_TEXT_MAIN = 14
 CHART_ANNOTATION = 16
@@ -267,32 +266,32 @@ def unpivot_data(df_raw):
     df['volume_iv'] = pd.to_numeric(df['volume_iv'], errors='coerce').fillna(0)
     df['volume_sc'] = pd.to_numeric(df['volume_sc'], errors='coerce').fillna(0)
     
-    # --- CONSISTENCY FIX: Divide IV by 2 to convert Vials to Patients/Treatments ---
-    df['volume_iv'] = df['volume_iv'] / 2.0
-    
     return df
 
 def calculate_metrics(df):
     print("--- Calculating Metrics ---")
     
     latest_date_in_data = df['date_day'].max().date()
-    today = datetime.now().date()
+    system_today = datetime.now().date()
     
-    if latest_date_in_data > today:
-        today = latest_date_in_data
-    
-    yesterday_date = today - timedelta(days=3 if today.weekday() == 0 else 1)
-    
-    if today.weekday() == 0:
-        df_yesterday = df[(df['date_day'].dt.date >= yesterday_date) & (df['date_day'].dt.date < today)].copy()
+    # If latest date >= today (system), ignore today and use previous date
+    if latest_date_in_data >= system_today:
+        query_date = system_today - timedelta(days=1)
     else:
-        df_yesterday = df[df['date_day'].dt.date == yesterday_date].copy()
+        query_date = latest_date_in_data
+    
+    # Handle Monday - aggregate Friday + Saturday + Sunday
+    if query_date.weekday() == 0:
+        friday = query_date - timedelta(days=3)
+        df_yesterday = df[(df['date_day'].dt.date >= friday) & (df['date_day'].dt.date < query_date)].copy()
+    else:
+        df_yesterday = df[df['date_day'].dt.date == query_date].copy()
     
     df_table = df_yesterday.groupby(['chainage_cip', 'chainage_name']).agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
     df_table.columns = ['chainage_cip', 'chainage_name', "Volume MTT Ocrevus IV d'hier", "Volume MTT Ocrevus SC d'hier"]
     
     # MTD
-    current_month = today.replace(day=1)
+    current_month = query_date.replace(day=1)
     df_mtd = df[df['date_day'].dt.date >= current_month].copy()
     df_mtd_agg = df_mtd.groupby('chainage_cip').agg({'volume_iv': 'sum', 'volume_sc': 'sum', 'center_cip': 'count'}).reset_index()
     df_mtd_agg.columns = ['chainage_cip', 'volume_iv_mtd', 'volume_sc_mtd', 'nb_orders_mtd']
@@ -342,17 +341,17 @@ def calculate_metrics(df):
         'Moyenne des Volumes MTT Ocrevus IV+SC des 4 derniers mois'
     ]]
     
-    return final.fillna('')
+    return final.fillna(''), query_date
 
 # =============================================================================
 # CHART GENERATION
 # =============================================================================
 
-def generate_charts(df_full, df_rated_centers=None):
+def generate_charts(df_full, query_date, df_rated_centers=None):
     print("--- Generating Charts ---")
     
-    current_month = datetime.now().replace(day=1).date()
-    df_mtd = df_full[df_full['date_day'].dt.date >= current_month]
+    current_month = query_date.replace(day=1)
+    df_mtd = df_full[(df_full['date_day'].dt.date >= current_month) & (df_full['date_day'].dt.date <= query_date)]
     iv = df_mtd['volume_iv'].sum()
     sc = df_mtd['volume_sc'].sum()
     
@@ -452,8 +451,7 @@ def generate_charts(df_full, df_rated_centers=None):
     fig_vol.write_image('/tmp/vol.png', scale=2)
     
     # Chart 3: Daily
-    today = datetime.now().date()
-    last_30_days = [(today - timedelta(days=i)) for i in range(30, 0, -1)]
+    last_30_days = [(query_date - timedelta(days=i)) for i in range(30, 0, -1)]
     
     df_d = df_full[df_full['date_day'].dt.date.isin(last_30_days)].groupby('date_day').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().sort_values('date_day')
     df_d['day_label'] = df_d['date_day'].dt.strftime('%d/%m')
@@ -479,8 +477,9 @@ def generate_charts(df_full, df_rated_centers=None):
     fig_d.write_image('/tmp/daily.png', scale=2)
     
     # Chart 4: Monthly
-    df_full['m'] = df_full['date_day'].dt.to_period('M')
-    df_m = df_full.groupby('m').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().tail(12)
+    df_full_filtered = df_full[df_full['date_day'].dt.date <= query_date]
+    df_full_filtered['m'] = df_full_filtered['date_day'].dt.to_period('M')
+    df_m = df_full_filtered.groupby('m').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().tail(12)
     df_m['lbl'] = df_m['m'].dt.strftime('%m/%y')
     
     fig_m = go.Figure()
@@ -587,11 +586,17 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
     <style>
         @font-face {{
             font-family: 'Roche Sans';
+            src: url('https://github.com/LakovskyR/OCREVUS/blob/main/RocheSans-Regular.ttf?raw=true') format('truetype');
+            font-style: normal;
+            font-weight: normal;
+        }}
+        @font-face {{
+            font-family: 'Roche Sans';
             src: url('https://github.com/LakovskyR/OCREVUS/blob/main/RocheSans-Italic.ttf?raw=true') format('truetype');
             font-style: italic;
             font-weight: normal;
         }}
-        body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f3; }}
+        body {{ font-family: 'Roche Sans', 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f3; }}
         .container {{ max-width: 900px; margin: 0 auto; background-color: white; }}
         .content {{ padding: 20px 40px; }}
         .intro-text {{ font-size: 14px; line-height: 1.8; margin-bottom: 20px; color: #000; }}
@@ -729,10 +734,10 @@ if __name__ == "__main__":
         
         # Transform
         df = unpivot_data(df_raw)
-        final_table = calculate_metrics(df)
+        final_table, query_date = calculate_metrics(df)
         
         # Charts (pass rated_centers for percentage calculation)
-        vol_iv, vol_sc, total_centers = generate_charts(df, df_rated_centers)
+        vol_iv, vol_sc, total_centers = generate_charts(df, query_date, df_rated_centers)
         
         # Date
         yesterday = datetime.now() - timedelta(days=1)
