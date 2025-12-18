@@ -296,8 +296,17 @@ def calculate_metrics(df):
     df_mtd_agg = df_mtd.groupby('chainage_cip').agg({'volume_iv': 'sum', 'volume_sc': 'sum', 'center_cip': 'count'}).reset_index()
     df_mtd_agg.columns = ['chainage_cip', 'volume_iv_mtd', 'volume_sc_mtd', 'nb_orders_mtd']
     
-    # 4-month avg
-    start_4m = current_month - timedelta(days=120)
+    # 4-month avg (last 4 COMPLETED months, excluding current month)
+    # Example: If current is Dec 2024, use: Nov, Oct, Sep, Aug 2024
+    month_4_ago = (current_month.replace(day=1) - timedelta(days=1)).replace(day=1)  # Start of previous month
+    month_5_ago = (month_4_ago - timedelta(days=120)).replace(day=1)  # Approximately 4 months back
+    
+    # Get exact start of 4 months ago
+    temp_date = current_month
+    for _ in range(4):
+        temp_date = (temp_date - timedelta(days=1)).replace(day=1)
+    start_4m = temp_date
+    
     df_4m = df[(df['date_day'].dt.date >= start_4m) & (df['date_day'].dt.date < current_month)].copy()
     df_4m_agg = df_4m.groupby('chainage_cip').agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
     df_4m_agg['avg_4m'] = (df_4m_agg['volume_iv'] + df_4m_agg['volume_sc']) / 4.0
@@ -417,16 +426,18 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
     fig_kpi.write_image('/tmp/kpi.png', scale=2)
     
     # Chart 2: Pie
-    labels = ['IV', 'SC'] if sc > 0 else ['IV']
-    values = [iv, sc] if sc > 0 else [iv]
-    colors = [COLORS['ocrevus_iv'], COLORS['ocrevus_sc']] if sc > 0 else [COLORS['ocrevus_iv']]
+    iv_rounded = round(iv)
+    sc_rounded = round(sc)
+    labels = ['IV', 'SC'] if sc_rounded > 0 else ['IV']
+    values = [iv_rounded, sc_rounded] if sc_rounded > 0 else [iv_rounded]
+    colors = [COLORS['ocrevus_iv'], COLORS['ocrevus_sc']] if sc_rounded > 0 else [COLORS['ocrevus_iv']]
     
     fig_vol = go.Figure(data=[go.Pie(
     labels=labels,
     values=values,
     marker=dict(colors=colors),
     textinfo='label+value+percent',
-    texttemplate='%{label}<br>%{value:,.0f}<br>(%{percent})',
+    texttemplate='%{label}<br>%{value:,.0f}<br>(%{percent:.1%})',
     textfont=dict(size=13, family=FONT_FAMILY),
     textposition='outside',
     pull=[0, 0],
@@ -457,9 +468,9 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
     df_d['day_label'] = df_d['date_day'].dt.strftime('%d/%m')
     
     fig_d = go.Figure()
-    fig_d.add_trace(go.Bar(x=df_d['day_label'], y=df_d['volume_iv'], name='IV', marker=dict(color=COLORS['ocrevus_iv']), text=df_d['volume_iv'].astype(int), textposition='inside', textfont=dict(color='white', size=10), insidetextanchor='start', cliponaxis=False))
+    fig_d.add_trace(go.Bar(x=df_d['day_label'], y=df_d['volume_iv'], name='IV', marker=dict(color=COLORS['ocrevus_iv']), text=df_d['volume_iv'].round().astype(int), textposition='inside', textfont=dict(color='white', size=10), insidetextanchor='start', cliponaxis=False))
     if df_d['volume_sc'].sum() > 0:
-        sc_labels = [str(int(v)) if v > 0 else '' for v in df_d['volume_sc']]
+        sc_labels = [str(round(v)) if v > 0 else '' for v in df_d['volume_sc']]
         fig_d.add_trace(go.Bar(x=df_d['day_label'], y=df_d['volume_sc'], name='SC', marker=dict(color=COLORS['ocrevus_sc']), text=sc_labels, textposition='outside', textfont=dict(size=10), textangle=0, cliponaxis=False))
     
     # FIX: Corrected layout syntax (xaxis and showlegend were inside yaxis)
@@ -483,8 +494,8 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
     df_m['lbl'] = df_m['m'].dt.strftime('%m/%y')
     
     fig_m = go.Figure()
-    fig_m.add_trace(go.Bar(x=df_m['lbl'], y=df_m['volume_iv'], name='IV', marker=dict(color=COLORS['ocrevus_iv']), text=[f'{int(v):,}'.replace(',', ' ') for v in df_m['volume_iv']], textposition='inside', textfont=dict(color='white', size=12), insidetextanchor='start'))
-    fig_m.add_trace(go.Bar(x=df_m['lbl'], y=df_m['volume_sc'], name='SC', marker=dict(color=COLORS['ocrevus_sc']), text=[f'{int(v):,}'.replace(',', ' ') if v>0 else '' for v in df_m['volume_sc']], textposition='outside', textfont=dict(size=12)))
+    fig_m.add_trace(go.Bar(x=df_m['lbl'], y=df_m['volume_iv'], name='IV', marker=dict(color=COLORS['ocrevus_iv']), text=[f'{round(v):,}'.replace(',', ' ') for v in df_m['volume_iv']], textposition='inside', textfont=dict(color='white', size=12), insidetextanchor='start'))
+    fig_m.add_trace(go.Bar(x=df_m['lbl'], y=df_m['volume_sc'], name='SC', marker=dict(color=COLORS['ocrevus_sc']), text=[f'{round(v):,}'.replace(',', ' ') if v>0 else '' for v in df_m['volume_sc']], textposition='outside', textfont=dict(size=12)))
     
     fig_m.update_layout(barmode='stack', template='plotly_white', height=350, width=800, title=dict(text='Evolution mensuelle des volumes d\'Ocrevus IV et SC', font=dict(size=CHART_TITLE_SIZE), x=0.5, xanchor='center'), yaxis=dict(visible=False, range=[0, max(df_m['volume_iv'] + df_m['volume_sc']) * 1.5]), showlegend=False)
     fig_m.write_image('/tmp/monthly.png', scale=2)
