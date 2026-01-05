@@ -35,7 +35,7 @@ jobs:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           USE_AI: '0'
           TRACKER_URL: 'https://ocrevus-tracker.onrender.com'
-          ACTIVE_RECIPIENT_GROUP: 'test_1'
+          ACTIVE_RECIPIENT_GROUP: 'test_2'
         run: |
           echo "📧 Sending preview to test_2 (4 people) for validation"
           python ocrevus_app.py
