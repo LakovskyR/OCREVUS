@@ -1,10 +1,11 @@
-name: Preview Report (11:30)
+name: Preview Report (11:15)
 
 on:
   schedule:
-    # 11:30 Paris (CET) = 10:30 UTC
+    # 11:15 Paris (CET) = 10:15 UTC (Winter) / 09:15 UTC (Summer)
+    # Github Actions uses UTC.
     # Monday-Friday only
-    - cron: '30 10 * * 1-5'
+    - cron: '15 10 * * 1-5'
   
   workflow_dispatch:
 
@@ -35,7 +36,5 @@ jobs:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           USE_AI: '0'
           TRACKER_URL: 'https://ocrevus-tracker.onrender.com'
-          ACTIVE_RECIPIENT_GROUP: 'test_1'
-        run: |
-          echo "📧 Sending preview to test_2 (4 people) for validation"
-          python ocrevus_app.py
+          ACTIVE_RECIPIENT_GROUP: 'test_2'
+        run: python ocrevus_app.py
