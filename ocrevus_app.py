@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Ocrevus Automation Script v4.9
-- Fix: Corrected Plotly layout syntax error in fig_d (Chart 3)
-- Visual fixes: Aligned legends for Chart 1 & 2
-- Visual: Legends moved closer to charts
-- Fix: Robust number parsing (comma handling for French decimals)
-- Content: Updated email text (Option 1) and fixed grammar
-- Visual: Increased font size for 'No volumes' message
+Ocrevus Automation Script v5.0
+- FIX: Date logic now ALWAYS uses yesterday's date (fixes stale data bug when no sales)
+- FIX: Monday logic simplified - always aggregates Fri-Sun when TODAY is Monday
+- FIX: TOTAL row now only shows totals for SC and IV columns (not MTD/Commands)
+- Previous: Fix for Plotly layout syntax, visual fixes for legends, robust number parsing
 """
 
 import os
@@ -274,20 +272,19 @@ def calculate_metrics(df):
     latest_date_in_data = df['date_day'].max().date()
     system_today = datetime.now().date()
     
-    # If latest date >= today (system), ignore today and use previous date
-    if latest_date_in_data >= system_today:
-        query_date = system_today - timedelta(days=1)
-    else:
-        query_date = latest_date_in_data
+    # ALWAYS use yesterday's date for query_date
+    query_date = system_today - timedelta(days=1)
     
-    # FIX: Handle Monday correctly - check if TODAY is Monday, not query_date
-    # If TODAY is Monday and query_date is Sunday (no weekend data), aggregate Fri+Sat+Sun
-    # Otherwise use query_date data directly (including Monday with actual data)
-    if system_today.weekday() == 0 and query_date.weekday() == 6:
+    # FIX: Handle Monday correctly - check if TODAY is Monday
+    # If TODAY is Monday, aggregate Fri+Sat+Sun (weekend period)
+    # Otherwise use query_date data directly
+    if system_today.weekday() == 0:  # Monday
         friday = query_date - timedelta(days=2)
         df_yesterday = df[(df['date_day'].dt.date >= friday) & (df['date_day'].dt.date <= query_date)].copy()
+        print(f"   📅 Monday detected: Aggregating Fri-Sun ({friday} to {query_date})")
     else:
         df_yesterday = df[df['date_day'].dt.date == query_date].copy()
+        print(f"   📅 Using data for: {query_date}")
     
     df_table = df_yesterday.groupby(['chainage_cip', 'chainage_name']).agg({'volume_iv': 'sum', 'volume_sc': 'sum'}).reset_index()
     df_table.columns = ['chainage_cip', 'chainage_name', "Volume MTT Ocrevus IV d'hier", "Volume MTT Ocrevus SC d'hier"]
@@ -568,11 +565,9 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         </tr>"""
     
     
-    # FIX #3: Add TOTAL row
+    # FIX #3: Add TOTAL row (only SC and IV columns have totals)
     total_sc = table_df[col_sc].sum()
     total_iv = table_df[col_iv].sum()
-    total_mtd = table_df['Volume MTT Ocrevus IV+SC dans le mois'].sum()
-    total_cmd = table_df["Nombre de commandes dans le mois d'Ocrevus IV+SC"].sum()
     
     def fmt(val):
         if pd.isna(val) or val == 0: return "0"
@@ -584,8 +579,8 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
         <td style="text-align: center; font-size: 11px; color: #000; font-weight: bold;"></td>
         <td style="text-align: center; font-size: 11px; color: #000; font-weight: bold;">{fmt(total_sc)}</td>
         <td style="text-align: center; font-size: 11px; color: #000; font-weight: bold;">{fmt(total_iv)}</td>
-        <td style="text-align: center; font-weight: bold; font-size: 11px; color: #000;">{fmt(total_mtd)}</td>
-        <td style="text-align: center; font-size: 11px; color: #000; font-weight: bold;">{int(total_cmd)}</td>
+        <td style="text-align: center; font-weight: bold; font-size: 11px; color: #000;"></td>
+        <td style="text-align: center; font-size: 11px; color: #000; font-weight: bold;"></td>
         <td style="text-align: center; font-size: 11px; color: #000; font-weight: bold;"></td>
         <td style="text-align: center; font-size: 11px; color: #000; font-weight: bold;"></td>
     </tr>'''
