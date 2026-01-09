@@ -667,11 +667,11 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
             <div class="intro-text">
                 Chère équipe,<br><br>
                 Veuillez trouver ci-dessous les points clés du jour :<br>
-                - Les centres livrés en Ocrevus la veille ;<br>
+                - Les centres livrés en Ocrevus hier ;<br>
                 - Un focus sur la performance d'Ocrevus SC ;<br>
                 - Un point de situation sur le mois en cours.<br><br>
                 N'hésitez pas à compléter ces informations avec celles du <a href="https://eu-west-1a.online.tableau.com/#/site/tabemeacloud/views/DashboardNeurologie/Ventesinternes?:iid=1">dashboard neuro</a> et <a href="https://customer.roche.com/customer-focus">CES</a> !<br><br>
-                🌟 <strong>Les centres livrés en Ocrevus la veille :</strong>
+                🌟 <strong>Les centres livrés en Ocrevus hier :</strong>
             </div>
             {table_section}
             
