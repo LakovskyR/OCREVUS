@@ -69,6 +69,7 @@ RECIPIENT_GROUPS = {
         "roman.lakovskiy@contractors.roche.com",
         "amaury.coumau@roche.com",
         "nele.kokel@roche.com",
+        "timothee.picot@roche.com",
         "diane-laure.trouvet@roche.com"
     ],
     'test_3': [
