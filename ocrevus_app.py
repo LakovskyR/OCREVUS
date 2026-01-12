@@ -399,8 +399,14 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
     
     total_hco = df_kpi['centres_with_sc'].sum()
     
+    # FIX: Force X-axis order: C1, C2, C3, Autre
+    category_order = ['C1', 'C2', 'C3', 'Autres']
+    df_kpi['Catégorie'] = pd.Categorical(df_kpi['Catégorie'], categories=category_order, ordered=True)
+    df_kpi = df_kpi.sort_values('Catégorie')
+    
     fig_kpi = px.bar(df_kpi, x='Catégorie', y='percentage',
-                     color_discrete_sequence=[COLORS['ocrevus_sc']], text='percentage')
+                     color_discrete_sequence=[COLORS['ocrevus_sc']], text='percentage',
+                     category_orders={'Catégorie': category_order})
     
     # VISUAL FIX: Increased bottom margin (b=160) for legend space
     fig_kpi.update_layout(
@@ -438,6 +444,11 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
     values = [iv_rounded, sc_rounded] if sc_rounded > 0 else [iv_rounded]
     colors = [COLORS['ocrevus_iv'], COLORS['ocrevus_sc']] if sc_rounded > 0 else [COLORS['ocrevus_iv']]
     
+    # FIX: Smart label positioning - outside if SC<=10%, inside if SC>10%
+    total = iv_rounded + sc_rounded
+    sc_percentage = (sc_rounded / total * 100) if total > 0 else 0
+    label_position = 'outside' if sc_percentage <= 10 else 'inside'
+    
     fig_vol = go.Figure(data=[go.Pie(
     labels=labels,
     values=values,
@@ -445,7 +456,7 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
     textinfo='label+value+percent',
     texttemplate='%{label}<br>%{value:,.0f}<br>(%{percent:.1%})',
     textfont=dict(size=13, family=FONT_FAMILY),
-    textposition='outside',
+    textposition=label_position,
     pull=[0, 0],
     direction='clockwise',
     sort=False,
@@ -493,10 +504,10 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
     
     fig_d.write_image('/tmp/daily.png', scale=2)
     
-    # Chart 4: Monthly
+    # Chart 4: Monthly (13 months to compare current month vs same month last year)
     df_full_filtered = df_full[df_full['date_day'].dt.date <= query_date]
     df_full_filtered['m'] = df_full_filtered['date_day'].dt.to_period('M')
-    df_m = df_full_filtered.groupby('m').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().tail(12)
+    df_m = df_full_filtered.groupby('m').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().tail(13)
     df_m['lbl'] = df_m['m'].dt.strftime('%m/%y')
     
     fig_m = go.Figure()
