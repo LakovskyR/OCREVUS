@@ -35,5 +35,5 @@ jobs:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           USE_AI: '0'
           TRACKER_URL: 'https://ocrevus-tracker.onrender.com'
-          ACTIVE_RECIPIENT_GROUP: 'prod_csv'
+          ACTIVE_RECIPIENT_GROUP: 'test_1'
         run: python ocrevus_app.py
