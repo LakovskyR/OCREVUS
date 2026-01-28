@@ -566,9 +566,8 @@ def generate_ambition_text(df_ambitions, reference_date):
         iv_ambition = int(current_month_data['IV'].iloc[0])
         sc_ambition = int(current_month_data['SC'].iloc[0])
         
-        # Calculate split (recalculate from values, ignore CSV split column)
-        total = iv_ambition + sc_ambition
-        split_pct = int(round(sc_ambition / total * 100)) if total > 0 else 0
+        # Calculate split: SC / IV (not SC / Total)
+        split_pct = int(round(sc_ambition / iv_ambition * 100)) if iv_ambition > 0 else 0
         
         result = f"ambition {month_name} : volumes Ocrevus IV : {iv_ambition} / volumes Ocrevus SC : {sc_ambition} / Split SC/IV : {split_pct}%"
         print(f"   ✓ Generated: {result}")
