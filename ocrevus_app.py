@@ -487,7 +487,13 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
     # Chart 3: Daily (last 30 days including query_date)
     last_30_days = [(query_date - timedelta(days=i)) for i in range(29, -1, -1)]
     
-    df_d = df_full[df_full['date_day'].dt.date.isin(last_30_days)].groupby('date_day').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().sort_values('date_day')
+    # FIX: Clip negative values to 0 BEFORE aggregation
+    df_d_filtered = df_full[df_full['date_day'].dt.date.isin(last_30_days)].copy()
+    df_d_filtered['volume_iv'] = df_d_filtered['volume_iv'].clip(lower=0)
+    df_d_filtered['volume_sc'] = df_d_filtered['volume_sc'].clip(lower=0)
+    
+    # Now group by date
+    df_d = df_d_filtered.groupby('date_day').agg({'volume_iv':'sum','volume_sc':'sum'}).reset_index().sort_values('date_day')
     df_d['day_label'] = df_d['date_day'].dt.strftime('%d/%m')
     
     fig_d = go.Figure()
@@ -542,17 +548,23 @@ def generate_ambition_text(df_ambitions, reference_date):
         }
         month_name = month_names.get(reference_date.month, 'janvier')
         
-        # Filter for current month
-        df_ambitions['Month'] = pd.to_datetime(df_ambitions['Month'], errors='coerce')
-        current_month_data = df_ambitions[df_ambitions['Month'].dt.month == reference_date.month]
+        # Parse End Month column - it's the last day of the month
+        df_ambitions['End Month'] = pd.to_datetime(df_ambitions['End Month'], errors='coerce')
+        
+        # Filter for current month (match by month and year)
+        current_month_data = df_ambitions[
+            (df_ambitions['End Month'].dt.month == reference_date.month) & 
+            (df_ambitions['End Month'].dt.year == reference_date.year)
+        ]
         
         if current_month_data.empty:
             # Fallback to hardcoded if no data found
+            print(f"   ⚠ No ambition data found for {month_name} {reference_date.year}")
             return "ambition janvier : volumes Ocrevus IV : 2253 / volumes Ocrevus SC : 365 / Split SC/IV : 16%"
         
-        # Get IV and SC values
-        iv_ambition = int(current_month_data['Volume Ocrevus IV'].iloc[0])
-        sc_ambition = int(current_month_data['Volume Ocrevus SC'].iloc[0])
+        # Get IV and SC values (column names are just "IV" and "SC")
+        iv_ambition = int(current_month_data['IV'].iloc[0])
+        sc_ambition = int(current_month_data['SC'].iloc[0])
         
         # Calculate split
         total = iv_ambition + sc_ambition
@@ -562,6 +574,8 @@ def generate_ambition_text(df_ambitions, reference_date):
         
     except Exception as e:
         print(f"   ⚠ Error generating ambition text: {e}")
+        import traceback
+        traceback.print_exc()
         return "ambition janvier : volumes Ocrevus IV : 2253 / volumes Ocrevus SC : 365 / Split SC/IV : 16%"
 
 def get_ai_content(iv, sc, total_centers, target_total=4686, sector_name=None, sector_iv=None, sector_sc=None):
@@ -846,7 +860,7 @@ if __name__ == "__main__":
                     sec_iv = int(df_sec["Volume MTT Ocrevus IV d'hier"].sum())
                     sec_sc = int(df_sec["Volume MTT Ocrevus SC d'hier"].sum())
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers, sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
-                    subject = f"💉 Votre quotidienne Ocrevus SC/IV - {date_str}"
+                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
                     send_email(list(set(recipients)), subject, html)
@@ -863,7 +877,7 @@ if __name__ == "__main__":
                     sec_iv = int(df_sec["Volume MTT Ocrevus IV d'hier"].sum())
                     sec_sc = int(df_sec["Volume MTT Ocrevus SC d'hier"].sum())
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers, sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
-                    subject = f"💉 Votre quotidienne Ocrevus SC/IV - {date_str}"
+                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
                     send_email(list(set(recipients)), subject, html)
@@ -880,7 +894,7 @@ if __name__ == "__main__":
                     sec_iv = int(df_sec["Volume MTT Ocrevus IV d'hier"].sum())
                     sec_sc = int(df_sec["Volume MTT Ocrevus SC d'hier"].sum())
                     ps_content = get_ai_content(nat_iv, nat_sc, total_centers, sector_name=sector, sector_iv=sec_iv, sector_sc=sec_sc)
-                    subject = f"💉 Votre quotidienne Ocrevus SC/IV - {date_str}"
+                    subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
                     tracking_id = generate_tracking_id(recipients[0], sector, date_str)
                     html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
                     send_email(list(set(recipients)), subject, html)
@@ -889,7 +903,7 @@ if __name__ == "__main__":
             # Send national view to managers
             print("Sending National View to Managers...")
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers)
-            subject_nat = f"💉 Votre quotidienne Ocrevus SC/IV - {date_str}"
+            subject_nat = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
             tracking_id = generate_tracking_id(RECIPIENT_GROUPS['prod_national_view'][0], 'NATIONAL', date_str)
             html_nat = build_html_v4(final_table, ps_content, tracking_id, ambition_text)
             send_email(RECIPIENT_GROUPS['prod_national_view'], subject_nat, html_nat)
@@ -902,7 +916,7 @@ if __name__ == "__main__":
             sec_iv = int(df_sec["Volume MTT Ocrevus IV d'hier"].sum())
             sec_sc = int(df_sec["Volume MTT Ocrevus SC d'hier"].sum())
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers, sector_name=target_sector, sector_iv=sec_iv, sector_sc=sec_sc)
-            subject = f"💉 Votre quotidienne Ocrevus SC/IV - {date_str}"
+            subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
             tracking_id = generate_tracking_id(RECIPIENT_GROUPS['test_3'][0], target_sector, date_str)
             html = build_html_v4(df_sec, ps_content, tracking_id, ambition_text)
             send_email(RECIPIENT_GROUPS['test_3'], subject, html)
@@ -918,7 +932,7 @@ if __name__ == "__main__":
                 print(f"❌ Error: No recipients found for group {ACTIVE_RECIPIENT_GROUP}")
                 sys.exit(1)
             
-            subject = f"💉 Votre quotidienne Ocrevus SC/IV - {date_str}"
+            subject = f"👉 Votre quotidienne Ocrevus SC/IV - {date_str}"
             ps_content = get_ai_content(nat_iv, nat_sc, total_centers)
             tracking_id = generate_tracking_id(recipients[0], 'NATIONAL', date_str)
             html = build_html_v4(final_table, ps_content, tracking_id, ambition_text)
