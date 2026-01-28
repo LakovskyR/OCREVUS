@@ -537,6 +537,7 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
 def generate_ambition_text(df_ambitions, reference_date):
     """Generate dynamic ambition text from Tableau data"""
     if df_ambitions is None or df_ambitions.empty:
+        print("   ⚠ df_ambitions is None or empty, using hardcoded values")
         return "ambition janvier : volumes Ocrevus IV : 2253 / volumes Ocrevus SC : 365 / Split SC/IV : 16%"
     
     try:
@@ -548,29 +549,76 @@ def generate_ambition_text(df_ambitions, reference_date):
         }
         month_name = month_names.get(reference_date.month, 'janvier')
         
-        # Parse End Month column - it's the last day of the month
-        df_ambitions['End Month'] = pd.to_datetime(df_ambitions['End Month'], errors='coerce')
+        print(f"   Processing ambitions for: {month_name} {reference_date.year}")
+        print(f"   Columns received: {df_ambitions.columns.tolist()}")
+        
+        # Check if data is in pivot format (Measure Names/Measure Values)
+        if 'Measure Names' in df_ambitions.columns and 'Measure Values' in df_ambitions.columns:
+            print("   Detected pivot format, unpivoting...")
+            # Find dimension columns (not Measure Names/Values)
+            dim_cols = [col for col in df_ambitions.columns if col not in ['Measure Names', 'Measure Values']]
+            df_amb = df_ambitions.pivot(index=dim_cols, columns='Measure Names', values='Measure Values').reset_index()
+            df_amb.columns.name = None
+        else:
+            df_amb = df_ambitions.copy()
+        
+        # Strip whitespace from column names and standardize
+        df_amb.columns = df_amb.columns.str.strip()
+        print(f"   Cleaned columns: {df_amb.columns.tolist()}")
+        
+        # Find the date column (could be "End Month", "Month", etc.)
+        date_col = None
+        for col in df_amb.columns:
+            if 'month' in col.lower() or 'date' in col.lower():
+                date_col = col
+                break
+        
+        if not date_col:
+            print("   ⚠ No date column found, using hardcoded values")
+            return "ambition janvier : volumes Ocrevus IV : 2253 / volumes Ocrevus SC : 365 / Split SC/IV : 16%"
+        
+        print(f"   Using date column: {date_col}")
+        
+        # Parse dates
+        df_amb[date_col] = pd.to_datetime(df_amb[date_col], errors='coerce')
         
         # Filter for current month (match by month and year)
-        current_month_data = df_ambitions[
-            (df_ambitions['End Month'].dt.month == reference_date.month) & 
-            (df_ambitions['End Month'].dt.year == reference_date.year)
+        current_month_data = df_amb[
+            (df_amb[date_col].dt.month == reference_date.month) & 
+            (df_amb[date_col].dt.year == reference_date.year)
         ]
         
+        print(f"   Rows after filtering: {len(current_month_data)}")
+        
         if current_month_data.empty:
-            # Fallback to hardcoded if no data found
             print(f"   ⚠ No ambition data found for {month_name} {reference_date.year}")
             return "ambition janvier : volumes Ocrevus IV : 2253 / volumes Ocrevus SC : 365 / Split SC/IV : 16%"
         
-        # Get IV and SC values (column names are just "IV" and "SC")
-        iv_ambition = int(current_month_data['IV'].iloc[0])
-        sc_ambition = int(current_month_data['SC'].iloc[0])
+        # Find IV and SC columns (flexible matching)
+        iv_col = None
+        sc_col = None
+        for col in df_amb.columns:
+            col_lower = col.lower().strip()
+            if col_lower == 'iv':
+                iv_col = col
+            elif col_lower == 'sc':
+                sc_col = col
+        
+        if not iv_col or not sc_col:
+            print(f"   ⚠ Could not find IV or SC columns. Available: {df_amb.columns.tolist()}")
+            return "ambition janvier : volumes Ocrevus IV : 2253 / volumes Ocrevus SC : 365 / Split SC/IV : 16%"
+        
+        # Get IV and SC values
+        iv_ambition = int(current_month_data[iv_col].iloc[0])
+        sc_ambition = int(current_month_data[sc_col].iloc[0])
         
         # Calculate split
         total = iv_ambition + sc_ambition
         split_pct = int(round(sc_ambition / total * 100)) if total > 0 else 0
         
-        return f"ambition {month_name} : volumes Ocrevus IV : {iv_ambition} / volumes Ocrevus SC : {sc_ambition} / Split SC/IV : {split_pct}%"
+        result = f"ambition {month_name} : volumes Ocrevus IV : {iv_ambition} / volumes Ocrevus SC : {sc_ambition} / Split SC/IV : {split_pct}%"
+        print(f"   ✓ Generated: {result}")
+        return result
         
     except Exception as e:
         print(f"   ⚠ Error generating ambition text: {e}")
