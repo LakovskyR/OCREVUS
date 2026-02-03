@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Ocrevus Automation Script v5.1
-- FIX: Center counts displayed above KPI chart bars
-- FIX: Dynamic ambition text from Tableau (month-aware with split calculation)
-- FIX: Date logic ALWAYS uses yesterday's date (fixes stale data bug when no sales)
-- FIX: Monday logic simplified - always aggregates Fri-Sun when TODAY is Monday
-- FIX: TOTAL row only shows totals for SC and IV columns (not MTD/Commands)
+Ocrevus Automation Script v5.2
+- FIX: Pie chart now handles empty data (start of month) gracefully
+- FIX: Pie chart pull parameter is dynamic to prevent length mismatch errors
+- CHANGE: Removed disclaimer text about forecast
 """
 
 import os
@@ -444,27 +442,46 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
     # Chart 2: Pie
     iv_rounded = round(iv)
     sc_rounded = round(sc)
-    labels = ['IV', 'SC'] if sc_rounded > 0 else ['IV']
-    values = [iv_rounded, sc_rounded] if sc_rounded > 0 else [iv_rounded]
-    colors = [COLORS['ocrevus_iv'], COLORS['ocrevus_sc']] if sc_rounded > 0 else [COLORS['ocrevus_iv']]
+    total_vol = iv_rounded + sc_rounded
     
-    # Smart label positioning - outside if SC<=10%, inside if SC>10%
-    total = iv_rounded + sc_rounded
-    sc_percentage = (sc_rounded / total * 100) if total > 0 else 0
-    label_position = 'outside' if sc_percentage <= 10 else 'inside'
+    # Handle empty data case (beginning of month)
+    if total_vol == 0:
+        labels = ['Pas de ventes']
+        values = [1]  # Dummy value to render a full circle
+        colors = ['#eeeeee']
+        text_template = 'Pas de ventes<br>ce mois-ci'
+        hover_info = 'skip'
+        label_position = 'center'
+        pull_config = [0]
+    else:
+        labels = ['IV', 'SC'] if sc_rounded > 0 else ['IV']
+        values = [iv_rounded, sc_rounded] if sc_rounded > 0 else [iv_rounded]
+        colors = [COLORS['ocrevus_iv'], COLORS['ocrevus_sc']] if sc_rounded > 0 else [COLORS['ocrevus_iv']]
+        text_template = '%{label}<br>%{value:,.0f}<br>(%{percent:.1%})'
+        hover_info = 'label+value+percent'
+        
+        # Smart label positioning
+        if sc_rounded > 0:
+            sc_percentage = (sc_rounded / total_vol * 100)
+            label_position = 'outside' if sc_percentage <= 10 else 'inside'
+        else:
+            label_position = 'inside'
+            
+        pull_config = [0] * len(labels)
     
     fig_vol = go.Figure(data=[go.Pie(
         labels=labels,
         values=values,
         marker=dict(colors=colors),
-        textinfo='label+value+percent',
-        texttemplate='%{label}<br>%{value:,.0f}<br>(%{percent:.1%})',
+        textinfo='label+value+percent' if total_vol > 0 else 'text',
+        texttemplate=text_template,
         textfont=dict(size=13, family=FONT_FAMILY),
         textposition=label_position,
-        pull=[0, 0],
+        pull=pull_config,
         direction='clockwise',
         sort=False,
-        rotation=225
+        rotation=225,
+        hoverinfo=hover_info
     )])
     
     fig_vol.update_layout(
@@ -775,9 +792,6 @@ def build_html_v4(table_df, ps_content=None, tracking_id=None, ambition_text=Non
             </div>
             
             <div class="disclaimer">
-                A noter que l'ambition découle du forecast qui prend en compte un lancement de Ocrevus SC en septembre 2025. 
-                Un nouveau forecast avec une date de lancement en janvier viendra avec de nouveaux objectifs. 
-                Toutes les précisions seront apportées en réunion mensuelle.
             </div>
 
             {ps_section}
