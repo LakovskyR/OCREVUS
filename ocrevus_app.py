@@ -20,7 +20,7 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 
 try:
-    import tableauserverclient as TSC
+    import tableauserverclient==0.38 as TSC
     import pandas as pd
     import plotly.graph_objects as go
     import plotly.express as px
