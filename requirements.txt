@@ -1,4 +1,4 @@
-tableauserverclient
+tableauserverclient==0.38
 pandas
 plotly
 kaleido==0.2.1
