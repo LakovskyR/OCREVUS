@@ -362,7 +362,7 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
     # Chart 1: KPI
     chainages_with_sc = df_full[df_full['volume_sc'] > 0]['chainage_cip'].unique()
     df_recent_ratings = df_full.sort_values('date_day', ascending=False).drop_duplicates('chainage_cip')[['chainage_cip', 'category']]
-    df_sc_centers = df_recent_ratings[df_recent_ratings['chainage_cip'].isin(chainages_with_sc)]
+    df_sc_centers = df_recent_ratings[df_recent_ratings['chainage_cip'].isin(chainages_with_sc)].copy()
     df_sc_centers['category'] = df_sc_centers['category'].replace('C4', 'Autres')
     
     df_kpi = df_sc_centers.groupby('category').size().reset_index(name='centres_with_sc')
@@ -451,7 +451,7 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
         colors = ['#eeeeee']
         text_template = 'Pas de ventes<br>ce mois-ci'
         hover_info = 'skip'
-        label_position = 'center'
+        label_position = 'inside'
         pull_config = [0]
     else:
         labels = ['IV', 'SC'] if sc_rounded > 0 else ['IV']
