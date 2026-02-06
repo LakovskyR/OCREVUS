@@ -354,10 +354,18 @@ def calculate_metrics(df):
 def generate_charts(df_full, query_date, df_rated_centers=None):
     print("--- Generating Charts ---")
     
+    # Debug: Show date range in data
+    if not df_full.empty:
+        min_date = df_full['date_day'].min().date()
+        max_date = df_full['date_day'].max().date()
+        print(f"   📊 Data range: {min_date} to {max_date}")
+    
     current_month = query_date.replace(day=1)
+    print(f"   📅 MTD filter: {current_month} to {query_date}")
     df_mtd = df_full[(df_full['date_day'].dt.date >= current_month) & (df_full['date_day'].dt.date <= query_date)]
     iv = df_mtd['volume_iv'].sum()
     sc = df_mtd['volume_sc'].sum()
+    print(f"   📈 MTD volumes: IV={iv}, SC={sc}, Total={iv+sc}")
     
     # Chart 1: KPI
     chainages_with_sc = df_full[df_full['volume_sc'] > 0]['chainage_cip'].unique()
@@ -444,7 +452,18 @@ def generate_charts(df_full, query_date, df_rated_centers=None):
     sc_rounded = round(sc)
     total_vol = iv_rounded + sc_rounded
     
-    # Handle empty data case (beginning of month)
+    # Handle empty MTD case - fall back to yesterday's data
+    if total_vol == 0:
+        # Get yesterday's data as fallback
+        df_yesterday = df_full[df_full['date_day'].dt.date == query_date]
+        iv_yest = df_yesterday['volume_iv'].sum()
+        sc_yest = df_yesterday['volume_sc'].sum()
+        iv_rounded = round(iv_yest)
+        sc_rounded = round(sc_yest)
+        total_vol = iv_rounded + sc_rounded
+        print(f"   ⚠️ No MTD data, using yesterday's data: IV={iv_rounded}, SC={sc_rounded}")
+    
+    # Handle case where even yesterday has no data
     if total_vol == 0:
         labels = ['Pas de ventes']
         values = [1]  # Dummy value to render a full circle
