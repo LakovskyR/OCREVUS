@@ -1,11 +1,12 @@
 name: Preview Report (11:15)
 
 on:
-  schedule:
-    # 11:15 Paris (CET) = 10:15 UTC (Winter) / 09:15 UTC (Summer)
-    # Github Actions uses UTC.
-    # Monday-Friday only
-    - cron: '15 10 * * 1-5'
+  # TEMPORARILY DISABLED - will activate later
+  # schedule:
+  #   # 11:15 Paris (CET) = 10:15 UTC (Winter) / 09:15 UTC (Summer)
+  #   # Github Actions uses UTC.
+  #   # Monday-Friday only
+  #   - cron: '15 10 * * 1-5'
   
   workflow_dispatch:
 

@@ -1,10 +1,11 @@
 name: Production Report (13:30)
 
 on:
-  schedule:
-    # 13:30 Paris (CET) = 12:30 UTC (Winter)
-    # Monday-Friday only
-    - cron: '30 12 * * 1-5'
+  # TEMPORARILY DISABLED - will activate later
+  # schedule:
+  #   # 13:30 Paris (CET) = 12:30 UTC (Winter)
+  #   # Monday-Friday only
+  #   - cron: '30 12 * * 1-5'
   
   workflow_dispatch:
 
